@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、iOS 的诞生1、macOS 的历史1984 年，Apple 发布了第一款计算机 Macintosh 128K，Macintosh 以其标志性的图形用户界面（GUI）和用户友好的设计，彻底改变了计算机行业，取代了当时普遍使用的命令行界面。这个阶段，Macintosh 中的操作系统名称为 System Software，这是 macOS 系统最早期的名称。 1985 年，史蒂夫·乔布斯被“驱逐”">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入解析 iOS 系统架构">
+<meta property="og:url" content="https://www.lixkit.com/posts/28259/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、iOS 的诞生1、macOS 的历史1984 年，Apple 发布了第一款计算机 Macintosh 128K，Macintosh 以其标志性的图形用户界面（GUI）和用户友好的设计，彻底改变了计算机行业，取代了当时普遍使用的命令行界面。这个阶段，Macintosh 中的操作系统名称为 System Software，这是 macOS 系统最早期的名称。 1985 年，史蒂夫·乔布斯被“驱逐”">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_205.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_206.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_207.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_208.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_209.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_210.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_211.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_212.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_213.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_214.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_215.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_216.png">
+<meta property="article:published_time" content="2023-10-07T22:04:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.904Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="架构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_205.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      深入解析 iOS 系统架构 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>深入解析 iOS 系统架构</h2>
+  <p class="post-date">2023-10-07</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、iOS-的诞生"><a href="#一、iOS-的诞生" class="headerlink" title="一、iOS 的诞生"></a>一、iOS 的诞生</h2><h3 id="1、macOS-的历史"><a href="#1、macOS-的历史" class="headerlink" title="1、macOS 的历史"></a>1、macOS 的历史</h3><p>1984 年，Apple 发布了第一款计算机 Macintosh 128K，Macintosh 以其标志性的图形用户界面（GUI）和用户友好的设计，彻底改变了计算机行业，取代了当时普遍使用的命令行界面。<br><img src="/images/lix_blog_205.png"><br>这个阶段，Macintosh 中的操作系统名称为 System Software，这是 macOS 系统最早期的名称。</p>
+<p>1985 年，史蒂夫·乔布斯被“驱逐”离开了 Apple，离开 Apple 后，乔布斯创立了 NeXT 公司，致力于生产高性能的工作站和开发新的操作系统 NeXTSTEP。</p>
+<p>NeXTSTEP 基于卡内基梅隆大学开发的 Mach 微内核，这使得系统具有模块化、高效和灵活的特点。Mach 微内核提供了基本的操作系统功能，如进程管理、内存管理和进程间通信（IPC）。NeXTSTEP  所使用的 Objective-C 开发语言，作为 macOS、iOS 的开发语言沿用至今。</p>
+<p>NeXTSTEP 拥有优雅的图形用户界面，提供了直观的用户体验。其 GUI 中使用了 PostScript 技术来呈现高质量的文本和图形，与当时的其他操作系统相比显得非常先进。NeXTSTEP 还集成了多种服务功能，包括文件服务器、邮件服务器等，增强了系统的多功能性。</p>
+<p>这里不得不提到这个阶段另一家著名的公司 Sun Microsystems（简称 Sun），该公司在 2010 年已被 Oracle Corporation 收购，Sun 在当时以其高性能工作站和服务器而闻名，目前仍然流行的 Java 就是其杰作之一。</p>
+<p>Sun 的工作站最初通过直接调用底层 Unix 操作系统和 SunView 窗口系统工具包进行编程，并使用基于这些接口构建的库，这导致即使是简单项目的编程也变得复杂。为了应对这一问题，Sun 在 20 世纪 80 年 代中期推出了 NeWS 窗口系统，尝试使用面向对象的编程模型，但由于复杂的应用程序编程接口（API）和普遍较差的性能，NeWS 并未得到广泛应用，最终被放弃。</p>
+<p>为了解决这一问题，1993 年 Sun 决定与 NeXT 进行合作构建其面向对象的应用框架，并对 NeXT 进行 1000 万美元的投资。Sun 与 NeXT 合作，从 NeXTSTEP 操作系统中提取出的核心面向对象编程接口和框架，这些接口和框架经过精简和适配，以便能够在 Sun 的 Solaris 操作系统上运行。最终，Sun 和 NeXT 合作开发出了 OpenStep，OpenStep 就是从 NeXTSTEP 提取出的面向对象编程接口和框架，开发者基于 OpenStep 框架开发出的应用，就可以运行在任何符合 OpenStep 规范的操作系统上。</p>
+<p>NeXT 与 Sun 分别基于 OpenStep 改造其现有操作系统，使其操作系统支持基于 OpenStep 开发的应用。1994 年，NeXT 最终发布了一个兼容 OpenStep 的 NeXTSTEP 版本，命名为 OPENSTEP（注意大小写），OPENSTEP 操作系统实际上是 NeXTSTEP 操作系统的 4.0 版本。</p>
+<p>1994 发布的官方 OpenStep API 首次将 API 分为 Foundation 和 Application Kit，并首次使用 “NS” 前缀（早期版本的 NeXTSTEP 使用 “NX” 前缀，仅包含 Application Kit）。这个 “NS” 前缀，则是 NeXT&#x2F;Sun 的简写，这就是 “NS” 前缀的来历。</p>
+<p>1996 年，Apple 宣布以 4.29 亿美元收购 NeXT。这一交易旨在获取 OPENSTEP 操作系统的技术，用于开发新一代的 Macintosh 操作系统。史蒂夫·乔布斯也随着这次收购重新回到了 Apple。</p>
+<p>收购 NeXT 后，Apple 融合了早期的 System Software 和 OPENSTEP （更准确的说，是 OPENSTEP 慢慢吸收了 System Software），开发出了新一代操作系统：Mac OS X。“Mac” 是 Macintosh 的缩写。</p>
+<p>1999 年，Apple 将操作系统 Mac OS X 的底层（Mach 内核及其上的 BSD 层）重新打包，并以开源形式发布了 Darwin 操作系统。并在后续，Apple 以 Darwin 为核心诞生了 iOS、tvOS、watchOS、BridgeOS（用于 Macbook Touch Bar 的 OS） 等一系列变体操作系统：<br><img src="/images/lix_blog_206.png"><br>使用如下命令可以查看系统所使用的 Darwin 版本信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">uname -v</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_207.png"><br><strong>直到现在，macOS、iOS 中仍然可以看到 OPENSTEP 的痕迹。OPENSTEP 对应的 OpenStep 框架演变成了现在 macOS 上的 Cocoa 框架，OpenStep 的 Foundation 和 Application Kit 演变成了 Cocoa 框架中的 Foundation 和 AppKit。</strong></p>
+<p>2012 年时候，Apple 简化“Mac OS X” 命名，去掉“Mac”前缀，更名为“ OS X”。</p>
+<p>2016 年，苹果公司宣布 OS X 更名为 macOS，以便与苹果其他操作系统 iOS、watchOS 和 tvOS 保持统一的命名风格。<br><img src="/images/lix_blog_208.png"></p>
+<h3 id="2、macOS-的衍生品-—-iOS"><a href="#2、macOS-的衍生品-—-iOS" class="headerlink" title="2、macOS 的衍生品 — iOS"></a>2、macOS 的衍生品 — iOS</h3><p>2005 年，苹果公司启动了一个名为“Project Purple”的秘密项目，目标是开发一款革命性的移动设备，即后来的 iPhone。在技术上，乔布斯面临两个选择：</p>
+<ul>
+<li><strong>把 Mac 缩小</strong>：即基于 macOS 技术开发 iPhone 操作系统。</li>
+<li><strong>把 iPod 扩大</strong>：即基于 iPod 的操作系统开发 iPhone 操作系统。<ul>
+<li>iPod 使用的操作系统是一个专为嵌入式设备设计的系统，是基于 Pixo OS 定制化开发出来的。</li>
+</ul>
+</li>
+</ul>
+<p>史蒂夫·乔布斯采用了内部竞争的策略，让 Mac 团队和 iPod 团队分别提出各自的方案，并通过竞争来激发创新和找到最佳的技术解决方案。最终，Mac 团队胜出，决定基于 macOS 开发 iPhone 使用的操作系统，即后来的 iOS 系统。为了适应移动设备的资源限制，苹果对 macOS 的许多组件进行了优化。例如，内存管理和电源管理系统进行了调整，以适应 iPhone 的硬件配置。</p>
+<p>2007 年 1 月，苹果公司于 Macworld 开发者大会上为 iOS 揭幕，并宣布于同年 6 月推出。在揭幕时，乔布斯称：“iPhone 运行 OS X，并且可使用‘桌面应用程序’”，最初随 iPhone 发布的操作系统并没有独立的名称，直至 2008 年才正式取名为 iPhone OS。</p>
+<p>2010 年 6 月，苹果公司于全球开发者大会中，宣布把 iPhone OS 重命名为 iOS，然而，思科系统已经使用 “iOS” 商标多年，用于其网络设备的操作系统，iOS 在思科的定义是 “Internetwork Operating System”。为避免商标侵权纠纷，苹果公司与思科系统达成了协议，从思科获得了“iOS”商标的使用权。</p>
+<p>iOS 作为 iPhone 中的操作系统名称，沿用至今。</p>
+<p>所以，从本质上看，iOS 实际上就是 macOS，但是两者还是有一些显著的区别的：</p>
+<ul>
+<li><p><strong>目标架构</strong></p>
+<ul>
+<li>iOS：iOS 的内核和二进制文件编译的目标架构是基于 ARM 架构。<ul>
+<li>ARM 处理器设计在电源管理方面具有显著优势，这对于移动设备来说非常重要。</li>
+</ul>
+</li>
+<li>macOS：早期 macOS 的内核和二进制文件编译的目标架构主要是 Intel 的 x86_64 架构。<ul>
+<li>Intel 处理器在性能方面表现出色，适用于桌面和笔记本电脑等需要高性能计算的设备。</li>
+<li>2020 年，新款 MacBook 从 Intel x86_64 架构的处理器转向自家设计的基于 ARM 架构的 Apple Silicon 处理器。<ul>
+<li>x86 是 32 位架构，而 x86_64 是其 64 位扩展版本</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>内核源码开放性</strong></p>
+<ul>
+<li>iOS：iOS 的内核源码是闭源的，尽管苹果公司承诺 macOS 的内核 XNU 要一直开源，但这一承诺并不适用于 iOS。</li>
+<li>macOS：macOS 的内核 XNU 是开源的，苹果公司定期发布其源代码。</li>
+</ul>
+</li>
+<li><p><strong>系统 GUI</strong></p>
+<ul>
+<li>iOS：iOS 的系统 GUI 是 SpringBoard，这是一个触屏应用加载器。<ul>
+<li>SpringBoard 的设计专注于触摸交互，适用于移动设备。</li>
+</ul>
+</li>
+<li>macOS：macOS 的 GUI 是 Aqua，这是一个鼠标驱动的界面，特别为窗口系统设计。<ul>
+<li>Aqua 界面专注于窗口管理和多任务处理，提供了丰富的桌面操作体验。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>内存限制</strong></p>
+<ul>
+<li>iOS：iOS 的内存管理更加紧凑，因为移动设备上没有几乎无穷的交换空间。开发者需要适应更严苛的内存限制和编程模型。</li>
+<li>macOS：macOS 可以利用更大的物理内存和交换空间，内存管理相对宽松。</li>
+</ul>
+</li>
+<li><p><strong>系统限制和安全性</strong></p>
+<ul>
+<li>iOS：iOS 系统的限制更加严格，应用程序不允许访问底层 UNIX API（即 Darwin），也没有 root 访问权限，只能访问自己的目录数据。只有苹果的应用可以访问整个系统。App Store 的应用被严格限制，必须通过苹果的审查。</li>
+<li>macOS：macOS 系统的限制相对宽松，用户和应用程序可以访问底层 UNIX API，具有更高的系统权限。用户可以安装和运行未经过苹果审查的应用程序。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3、CUP-架构的统一"><a href="#3、CUP-架构的统一" class="headerlink" title="3、CUP 架构的统一"></a>3、CUP 架构的统一</h3><p>iPhone 4 之前，iPhone 使用的是三星研发的基于 ARM11 架构的处理器，从 iPhone 4 开始，苹果转向使用自家设计的 A 系列处理器，首款为 A4。A 系列处理器基于 ARM 架构，由苹果自主设计并由合作伙伴制造。而 Mac，则主要使用的是 Intel x86_64 处理器。</p>
+<p>Mac 基于 Intel x86_64，遇到了如下问题：</p>
+<ul>
+<li><p><strong>性能和能效瓶颈</strong></p>
+<ul>
+<li>性能提升有限：近年来，Intel 处理器的性能提升速度放缓，未能满足苹果对高性能计算的需求。</li>
+<li>能效比不足：Intel 处理器在能效比方面表现不佳，特别是在笔记本电脑和移动设备中，电池续航时间成为一个重要问题。</li>
+</ul>
+</li>
+<li><p><strong>散热和功耗</strong></p>
+<ul>
+<li>功耗较高：Intel 处理器的功耗较高，导致设备发热严重，影响用户体验和设备寿命。</li>
+<li>散热问题：高功耗带来的散热问题，使得设备设计需要更复杂的散热系统，增加了设计难度和成本。</li>
+</ul>
+</li>
+<li><p><strong>生态系统整合</strong></p>
+<ul>
+<li>架构不统一：苹果的移动设备（如 iPhone 和 iPad）使用的是 ARM 架构，而 Mac 设备使用的是 Intel x86_64 架构。这种架构不统一导致开发者需要为不同架构编写和优化应用程序，增加了开发和维护的复杂性。</li>
+</ul>
+</li>
+</ul>
+<p>近年来，媒体报道中多次记载了苹果对英特尔研发速度和质量的疑惑和不满。一份 2018 年的报告指出英特尔芯片的问题导致了苹果对 MacBook 的重新设计(<a target="_blank" rel="noopener" href="https://venturebeat.com/2018/08/17/apple-reportedly-redesigned-basic-macbook-after-intel-chip-issues/">链接</a>)。2019 年，苹果指责英特尔芯片库存的短缺导致了 Mac 销量的下降(<a target="_blank" rel="noopener" href="https://www.techradar.com/news/apple-blames-intels-processor-shortage-for-slump-in-mac-sales">链接</a>)。</p>
+<p>到 2020 年，有报道指出在 2018 款 iPad Pro 中使用的基于 ARM 架构的 Apple A12X Bionic 处理器已经能够在性能上和在 MacBook Pro 中使用的英特尔 Core i7 处理器打平。</p>
+<p>最早在 2018 年，就有媒体报道苹果计划用自家设计的处理器取代 Mac 设备中的 Intel 处理器，这一计划被称为“Project Kalamata”。</p>
+<p>最终，2020 年的全球开发者大会（WWDC 2020）上，Apple 公布自己研发的基于 ARM64 架构的新一代处理器：Apple Silicon。Apple Silicon 是苹果公司为其自家设计的基于 ARM 架构的处理器所使用的总称，而 M 系列处理器是 Apple Silicon 家族中的具体产品系列之一。Apple 同时发布了新版操作系统 macOS Big Sur，是首个支持 Apple Silicon 的 macOS 版本。以及发布了搭载首款 M 系列处理器 M1 以及 macOS Big Sur 系统的一系列 MacBook 设备。</p>
+<p>macOS Big Sur 系统的发布标志着苹果开始从 x86-64 架构（Intel 处理器）过渡到 ARM 架构（Apple Silicon 处理器）。为了确保这一过渡的顺利进行，并确保用户在新旧架构上的无缝体验，苹果采取了一系列技术措施，使得自带应用和第三方应用能够同时支持 x86-64 与 ARM 架构：</p>
+<ul>
+<li><p><strong>通用二进制（Universal Binary）</strong></p>
+<ul>
+<li>通用二进制是一种包含多个架构版本的应用程序包。在 macOS Big Sur 系统中，苹果引入了新的通用二进制格式，使得应用程序可以同时包含 x86-64 和 ARM 架构的代码。</li>
+<li>实现方式：<ul>
+<li>编译工具：通过 Xcode 开发工具，开发者可以将他们的应用程序编译为通用二进制，包含适用于 Intel 和 Apple Silicon 的代码。</li>
+<li>自动选择：当用户在不同架构的 Mac 上运行应用程序时，系统会自动选择并执行适用于当前硬件架构的代码。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>Rosetta 2</strong></p>
+<ul>
+<li>Rosetta 2 是一个动态二进制翻译层，允许基于 x86-64 架构的应用程序在 Apple Silicon 设备上运行。</li>
+<li>工作原理：<ul>
+<li>动态翻译：当用户在 Apple Silicon 设备上运行仅支持 x86-64 架构的应用程序时，Rosetta 2 会在运行时将 x86-64 指令动态翻译为 ARM 指令。</li>
+<li>性能优化：Rosetta 2 不仅支持动态翻译，还能在应用程序安装或首次运行时进行静态翻译，以提高性能。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>至此，iPhone、iPad、Mac 实现了 CPU 架构的统一。CPU 架构的统一就意味着软件生态的统一，开发者开发一个 APP，就可以同时运行在 iPhone、iPad、Mac 设备上。</p>
+<h2 id="二、iOS-架构"><a href="#二、iOS-架构" class="headerlink" title="二、iOS 架构"></a>二、iOS 架构</h2><p>前面已经提到，iOS 起源于 macOS，本质上 iOS 就是精简版的 macOS，下图是 Apple 官方文档对 macOS &amp; iOS 架构层次划分：<br><img src="/images/lix_blog_209.png"><br>可以看到，Apple 对 macOS &amp; iOS 在架构上分层，本质上是一样的。</p>
+<p>这里主要关注 iOS，在 Apple 官方架构分层上，iOS 系统架构层次如下：<br><img src="/images/lix_blog_210.png" style="width:50%;"></p>
+<ul>
+<li><p><strong>触摸层（Cocoa Touch）</strong></p>
+<ul>
+<li>提供了开发者常用的框架。</li>
+<li>包括 <strong>UIKit</strong>、MapKit、iAd 等。</li>
+</ul>
+</li>
+<li><p><strong>媒体层（Media）</strong></p>
+<ul>
+<li>为 Cocoa Touch 层提供 UI 渲染和多媒体服务。</li>
+<li>包括 Metal、CoreText、QuartzCore、CoreGraphics 等。<ul>
+<li>我们常用的 CoreAnimation 位于 QuartzCore 中。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>核心服务层（Core Services）</strong></p>
+<ul>
+<li>提供了如字符串操作、集合管理、网络、URL工具、联系人管理和偏好设置等服务的框架。</li>
+<li>还提供了基于设备硬件特性的服务，例如 GPS、指南针、加速度计和陀螺仪。</li>
+<li>包括 <strong>Foundation</strong>、CoreFoundation、CFNetwork、CoreLocation、CoreData 等。</li>
+</ul>
+</li>
+<li><p><strong>核心系统层（Core OS）</strong></p>
+<ul>
+<li>提供了系统级的底层功能，一般来说开发者不需要接触这些技术。</li>
+<li>这一层主要由三部分组成：<ul>
+<li><strong>Darwin</strong> <ul>
+<li>Darwin 是 macOS 和 iOS 操作系统开发的核心，是基于 XNU 内核的操作系统。Darwin 包含了核心的操作系统组件，包括内核、驱动程序、文件系统和网络堆栈等。</li>
+<li>Darwin 提供了开发者常用的 libSystem 库。libSystem 是一个综合性的基础库，包含了多个子库，例如 libdispatch(GCD)、libsystem_blocks(Block)、libpthread(pthread) 等。</li>
+</ul>
+</li>
+<li>64-Bit Support<ul>
+<li>iOS 最初设计支持在使用 32 位架构的设备上运行二进制文件。从 iOS 7 开始，引入了对 64 位架构的编译、链接和调试二进制文件的支持。</li>
+<li>iOS 使用与 OS X 和其他 64 位 UNIX 系统相同的 LP64 模型，LP64 模型通过定义特定数据类型的大小，提供了一种在 64 位系统中管理内存和数据的标准方式。</li>
+</ul>
+</li>
+<li>Frameworks<ul>
+<li>核心系统层提供了一系列安全性或与外部硬件配件通信相关的框架，通过使用这些框架，开发者可以很容易地实现安全和硬件交互功能。</li>
+<li>包括 Accelerate、CoreBluetooth、Security 等框架。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>在上述架构层次中，Darwin 是整个系统的基础。不同的是，macOS 上的 Darwin 是开源的，而 iOS 中的 Darwin  是在 ARM 上的移植，这个 Darwin 则是不开源的。架构层次的其他部分在 macOS &amp; iOS 上也都是不开源的，属于 Apple 的私有知识产权。</p>
+<p><strong>“Cocoa Touch 层(触摸层)” 与 “Cocoa Touch”</strong><br>在上述 iOS 架构中，”Cocoa Touch 层(触摸层)”并不完全等价于 “Cocoa Touch”，”Cocoa Touch 层”是 iOS 架构中的一个特定层次，专注于用户界面和交互，并非传统意义上的 “Cocoa Touch”。</p>
+<p><strong>那么，Cocoa Touch 是什么呢？</strong><br>关于这个问题，<a target="_blank" rel="noopener" href="https://developer.apple.com/library/archive/documentation/General/Conceptual/DevPedia-CocoaCore/Cocoa.html">Apple 官方文档</a>中给出了明确的答案：</p>
+<blockquote>
+<p>Cocoa and Cocoa Touch are the application development environments for OS X and iOS, respectively. Both Cocoa and Cocoa Touch include the Objective-C runtime and two core frameworks:<br>Cocoa, which includes the Foundation and AppKit frameworks, is used for developing applications that run on OS X.<br>Cocoa Touch, which includes Foundation and UIKit frameworks, is used for developing applications that run on iOS.</p>
+</blockquote>
+<p>即：<strong>Cocoa Touch 是 iOS 应用的开发环境，包含了 iOS 开发所用到的一系列框架和技术。Cocoa Touch 中两个最核心的框架分别是 UIKit、Foundation，UIKit、Foundation 分别位于 iOS 系统架构的不同层次中，UIKit 位于触摸层(Cocoa Touch 层)，Foundation 位于核心服务层(Core Services 层)。</strong></p>
+<p>iOS 中的 “Cocoa Touch” 等价于 macOS 中的 “Cocoa”，macOS 的 Cocoa 两个最核心的框架是 AppKit、Foundation，其中 AppKit 就等价于 iOS 中的 UIKit。在基于 macOS 开发出 iOS 系统之后，macOS 中的 Cocoa 就演变成了 iOS 中的 Cocoa Touch。</p>
+<p>在开发时，”Cocoa Touch” 通常泛指所有继承自根类 NSObject 的类或对象。</p>
+<h2 id="三、Darwin"><a href="#三、Darwin" class="headerlink" title="三、Darwin"></a>三、Darwin</h2><p>Darwin 是 Apple 1999 年开源出的操作系统，Darwin 是一个完整的操作系统，也是 macOS、iOS、tvOS、watchOS、BridgeOS 系统的基础。</p>
+<p>Darwin 操作系统的主要作用，是在应用程序和硬件之间，提供一层抽象。Darwin 提供了应用程序与硬件交互的抽象接口，使开发者在开发应用程序时，避免了和硬件的直接交互，也就避免了对不同硬件的适配。由于操作系统可以运行在不同的硬件上，因此开发者编写的代码就具有了可移植性。</p>
+<p>iOS 在 Darwin 基础上，向开发者提供了图形渲染能力及面向对象开发环境，如 Metal、QuartzCore、CoreGraphics 和 Cocoa Touch，开发者可以在此基础上，进行 APP 的开发。Darwin 的内核是 XNU，Darwin 所承担的具体工作，都是由 XNU 来完成的。当 APP 需要内核 XNU 提供服务时，就需要通过 Darwin 提供的系统调用相关的 API，从用户态切换到内核态，内核 XNU 在内核态完成具体工作后，再切换回用户态，由 APP 完成后续工作。</p>
+<p>Darwin 架构如下：<br><img src="/images/lix_blog_211.png" style="width:50%;"></p>
+<h3 id="1、libSystem-B-dylib"><a href="#1、libSystem-B-dylib" class="headerlink" title="1、libSystem.B.dylib"></a>1、libSystem.B.dylib</h3><p>libSystem.B.dylib 是 Darwin 系统上的非常重要的一个核心动态链接库，几乎所有的系统服务和应用程序都依赖它，libSystem.B.dylib 通过整合多个系统库的符号和链接信息，提供了统一的接口，使得开发者只需链接一个库即可访问多种基础功能，简化了开发过程，同时保持系统库的模块化和可扩展性。</p>
+<p>libSystem.B.dylib 主要包含符号表和链接信息，而不包含实际的实现代码。它充当一个伪装库（stub library），在编译时提供符号解析，在 APP 启动时由动态链接器（dyld）解析并加载实际的实现库。</p>
+<p>以 iOS 15.6.1 为例，其 libSystem.B.dylib 位于如下目录中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/Users/lifengfeng/Library/Developer/Xcode/iOS DeviceSupport/iPhone13,2 15.6.1 (19G82)/Symbols/usr/lib/libSystem.B.dylib</span><br></pre></td></tr></table></figure>
+
+<p>每个版本模拟器，libSystem.B.dylib 所处位置可能不同，可以使用如下命令查找 libSystem.B.dylib 的位置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo find / -name libSystem.B.dylib 2&gt;/dev/null</span><br></pre></td></tr></table></figure>
+
+<p>找到 libSystem.B.dylib 后，可以使用 otool 工具查看 libSystem.B.dylib 里依赖的具体系统库：</p>
+<ul>
+<li>otool -L：用于显示 Mach-O 文件的动态库依赖列表，简洁地列出所有依赖的动态库及其版本信息。</li>
+<li>otool -l：用于显示 Mach-O 文件的所有加载命令，提供详细的元数据信息，包括段信息、依赖库、符号表等。</li>
+</ul>
+<p>可以使用 otool -L 命令打印 libSystem.B.dylib 依赖的系统库信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">otool -L /Users/lifengfeng/Library/Developer/Xcode/iOS\ DeviceSupport/iPhone13,2\ 15.6.1\ \(19G82\)/Symbols/usr/lib/libSystem.B.dylib</span><br></pre></td></tr></table></figure>
+<p>打印内容如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">/Users/lifengfeng/Library/Developer/Xcode/iOS DeviceSupport/iPhone13,2 15.6.1 (19G82)/Symbols/usr/lib/libSystem.B.dylib:</span><br><span class="line">	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1311.120.1)</span><br><span class="line">	/usr/lib/system/libcache.dylib (compatibility version 1.0.0, current version 85.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libcommonCrypto.dylib (compatibility version 1.0.0, current version 60191.100.1, reexport)</span><br><span class="line">	/usr/lib/system/libcompiler_rt.dylib (compatibility version 1.0.0, current version 103.1.0, reexport)</span><br><span class="line">	/usr/lib/system/libcopyfile.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libcorecrypto.dylib (compatibility version 1.0.0, current version 1218.120.10, reexport)</span><br><span class="line">	/usr/lib/system/libdispatch.dylib (compatibility version 1.0.0, current version 1325.120.2, reexport)</span><br><span class="line">	/usr/lib/system/libdyld.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libmacho.dylib (compatibility version 1.0.0, current version 994.2.0, reexport)</span><br><span class="line">	/usr/lib/system/libremovefile.dylib (compatibility version 1.0.0, current version 60.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_asl.dylib (compatibility version 1.0.0, current version 392.100.2, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_blocks.dylib (compatibility version 1.0.0, current version 79.1.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_c.dylib (compatibility version 1.0.0, current version 1507.100.9, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_collections.dylib (compatibility version 1.0.0, current version 1507.100.9, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_configuration.dylib (compatibility version 1.0.0, current version 1163.140.3, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_containermanager.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_coreservices.dylib (compatibility version 1.0.0, current version 133.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_darwin.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_dnssd.dylib (compatibility version 1.0.0, current version 1557.140.4, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_featureflags.dylib (compatibility version 1.0.0, current version 56.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_info.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_m.dylib (compatibility version 1.0.0, current version 3204.80.2, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_malloc.dylib (compatibility version 1.0.0, current version 374.120.1, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_networkextension.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_notify.dylib (compatibility version 1.0.0, current version 301.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_product_info_filter.dylib (compatibility version 1.0.0, current version 10.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_sandbox.dylib (compatibility version 1.0.0, current version 1657.140.3, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_kernel.dylib (compatibility version 1.0.0, current version 8020.142.2, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_platform.dylib (compatibility version 1.0.0, current version 273.100.5, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_pthread.dylib (compatibility version 1.0.0, current version 486.100.11, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_symptoms.dylib (compatibility version 1.0.0, current version 1.0.0, reexport)</span><br><span class="line">	/usr/lib/system/libsystem_trace.dylib (compatibility version 1.0.0, current version 1375.140.2, reexport)</span><br><span class="line">	/usr/lib/system/libunwind.dylib (compatibility version 1.0.0, current version 202.2.0, reexport)</span><br><span class="line">	/usr/lib/system/libxpc.dylib (compatibility version 1.0.0, current version 2236.140.2, reexport)</span><br></pre></td></tr></table></figure>
+<p>在上述的打印信息中，列出了 libSystem.B.dylib 依赖的其他系统动态链接库的信息，其中，每一行中的 “reexport” 表示该动态库使用了 LC_REEXPORT_DYLIB 命令重新导出这些依赖库中的符号。这样，任何链接到 libSystem.B.dylib 的 APP 或其他动态库都可以直接使用这些被重新导出的符号，而无需直接链接到这些底层库。</p>
+<p>当一个应用程序或动态库加载包含 LC_REEXPORT_DYLIB 命令的动态库时，动态链接器（dyld）会立即解析并加载所有 LC_REEXPORT_DYLIB 指定的库。这意味着这些库会在 APP 冷启动时，随着 libSystem.B.dylib 一起加载到内存中。</p>
+<p>同时，可以在上述的打印信息中，可以看到我们开发中常用的一些系统库，例如：</p>
+<ul>
+<li>libdispatch.dylib：提供了 GCD</li>
+<li>libsystem_blocks.dylib：提供了 Block</li>
+<li>libsystem_pthread.dylib：提供了 pthread</li>
+<li>libsystem_c.dylib：提供了标准 C 库，如字符串操作、输入输出、数学运算等。</li>
+</ul>
+<h3 id="2、用户态-内核态"><a href="#2、用户态-内核态" class="headerlink" title="2、用户态 &amp; 内核态"></a>2、用户态 &amp; 内核态</h3><h4 id="（1）什么是用户态、内核态"><a href="#（1）什么是用户态、内核态" class="headerlink" title="（1）什么是用户态、内核态"></a>（1）什么是用户态、内核态</h4><p>一个 iOS APP 从开发到运行，大致流程如下：</p>
+<ul>
+<li>在开发时，我们使用高级语言（如 Objective-C 或 Swift）编写源代码文件。</li>
+<li>源代码文件经过编译器的处理，首先被转换为汇编语言，这个过程是将高级语言的语法和结构转换为更接近硬件的汇编语言。</li>
+<li>之后编译器会将汇编语言进一步编译为机器语言，机器语言是由二进制代码组成的语言，这些二进制代码就是 CPU 指令集中的指令。机器语言是可以直接被 CPU 执行的代码。<ul>
+<li>这些机器语言的代码以及其他信息最终会被打包成一个 Mach-O 文件。</li>
+</ul>
+</li>
+<li>当用户启动 APP 时，iOS 操作系统会将 APP 的这些机器语言指令从磁盘加载到内存中并执行。</li>
+</ul>
+<p>如下图：<br><img src="/images/lix_blog_212.png"><br>CPU 指令集可以直接操作硬件的，如果指令操作的不规范，会对整个计算机系统产生很大的影响，甚至会导致操作系统或其他程序的崩溃。因此，为了防止应用程序崩溃而导致的内核崩溃，内核与应用程序之间需要进行严格的分离。基于软件的分离会产生巨大的开销，所以现代的操作系统都是依靠硬件来分离，分离的结果就是用户态与内核态。</p>
+<p>为了保护系统的安全和稳定，硬件设备商直接在硬件层面对 CPU 指令设置了权限，在 iPhone 设备上，CPU 采用的是 ARM 架构，其指令集操作的权限等级主要分为用户模式（User mode）和特权模式（Privileged mode），这两种模式对应于操作系统的用户态和内核态。</p>
+<ul>
+<li><p><strong>用户模式（User mode）</strong></p>
+<ul>
+<li>对应于操作系统的用户态。</li>
+<li>用户模式是应用程序的运行模式。在这种模式下，应用程序只能访问自己的内存空间，不能直接访问硬件或其他程序的内存，也不能执行特权指令。如果应用程序需要执行这些特权操作，如读写文件、创建进程等，必须通过系统调用的方式，请求操作系统代为完成。</li>
+</ul>
+</li>
+<li><p><strong>特权模式（Privileged mode）</strong></p>
+<ul>
+<li>对应于操作系统的内核态。</li>
+<li>特权模式是操作系统内核的运行模式。在这种模式下，操作系统可以访问所有的硬件和内存，可以执行所有的 CPU 指令。特权模式通常用于处理系统调用、中断等系统级的任务。</li>
+</ul>
+</li>
+</ul>
+<p>在特权模式下，又可以细分为以下几种子模式，以处理不同的系统级任务：</p>
+<ul>
+<li><p><strong>系统模式（System mode）</strong></p>
+<ul>
+<li>这是操作系统内核的正常运行模式。</li>
+<li>在这种模式下，操作系统可以访问所有的硬件和内存，可以执行所有的 CPU 指令。当用户态应用程序需要执行高权限的操作（如文件读写、网络通信、进程管理等），会触发系统调用，并在系统模式下完成对应工作。</li>
+</ul>
+</li>
+<li><p><strong>中断模式（IRQ mode）和快速中断模式（FIQ mode）</strong></p>
+<ul>
+<li>这些模式用于处理硬件中断。</li>
+<li>中断模式（IRQ mode）<ul>
+<li>用于处理标准硬件中断请求（Interrupt Requests, IRQs）。</li>
+<li>当系统外设（如键盘、鼠标、网络设备等）需要 CPU 处理某个事件时，它们会发出中断信号，请求系统的注意。</li>
+</ul>
+</li>
+<li>快速中断模式（FIQ mode）<ul>
+<li>用于处理快速、紧急的硬件中断请求（Fast Interrupt Requests, FIQs）。</li>
+<li>设计用于需要最低延迟和最高优先级的中断处理场景，该模式对时间敏感的任务（如音频和视频处理、实时通信等）提供最佳支持。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>异常模式（Abort mode）</strong></p>
+<ul>
+<li>这种模式用于处理内存访问异常。</li>
+<li>当程序试图访问一个无效的内存地址时，CPU 会切换到异常模式，执行预设的异常处理程序。</li>
+</ul>
+</li>
+<li><p><strong>未定义模式（Undefined mode）</strong></p>
+<ul>
+<li>这种模式用于处理未定义的指令。</li>
+<li>当程序试图执行一个未定义的指令时，CPU 会切换到未定义模式，执行预设的错误处理程序。</li>
+</ul>
+</li>
+</ul>
+<h4 id="（2）用户态、内核态的转换"><a href="#（2）用户态、内核态的转换" class="headerlink" title="（2）用户态、内核态的转换"></a>（2）用户态、内核态的转换</h4><p>前面已经提到，用户态、内核态的区分是由硬件（CPU）提供的，当我们开发的 APP 需要内核 XNU 提供服务时，就需要从用户态切换到内核态，由 XNU 在内核态完成对应工作后，再切回回用户态，由 APP 继续完成后续的工作。<br><img src="/images/lix_blog_213.png"><br>用户态、内核态转换，主要有两种方式：</p>
+<ul>
+<li><strong>自愿转换</strong><ul>
+<li>当应用程序需要内核服务的时候，应用程序通过<strong>系统调用</strong>进入内核态。这种转换方式就是自愿切换。</li>
+</ul>
+</li>
+<li><strong>非自愿转换</strong><ul>
+<li>当发生执行异常、中断或处理器陷阱的时候，代码的执行会被挂起，并且保留发生错误时候的完整状态。控制权被转交给预定义的内核态错误处理程序或中断服务程序(interrupt serviceroutine, ISR)。</li>
+</ul>
+</li>
+</ul>
+<p>在 XNU 中，系统调用有四种类别：</p>
+<ul>
+<li><p><strong>BSD 系统调用</strong></p>
+<ul>
+<li>“经典” 的系统调用，是 XNU 的 BSD 提供的接口，又称“BSD 调用”。</li>
+<li>BSD 提供的这些接口遵循 POSIX 标准，提供与 Unix 类操作系统兼容的功能，如文件操作、进程管理、网络通信等。</li>
+<li>如常用的 <code>open</code>、<code>read</code>、<code>write</code>、<code>mmap</code> 等 C 函数内部都是使用 <code>syscall</code> 指令将控制权转移到内核态。</li>
+</ul>
+</li>
+<li><p><strong>Mach 陷阱</strong></p>
+<ul>
+<li>XNU 的 Mach 提供的接口。</li>
+<li>用于进程间通信（IPC）、任务管理、内存管理和其他底层操作系统功能。</li>
+<li>用户态程序通过调用 Mach API 函数（如 <code>mach_msg</code>、<code>task_create</code>、<code>vm_allocate</code> 等）发起 Mach 陷阱，这些函数内部使用 <code>trap</code> 指令将控制权转移到内核态。</li>
+</ul>
+</li>
+<li><p><strong>机器相关的调用</strong></p>
+<ul>
+<li>用于访问 CPU 特定的功能。</li>
+<li>例如 CPU 缓存管理、性能监控、特殊寄存器访问等。</li>
+</ul>
+</li>
+<li><p><strong>诊断调用</strong></p>
+<ul>
+<li>专门用于内核调试和诊断，提供内核状态监控、调试信息输出等功能。</li>
+<li>这些调用通常不用于普通应用程序，而是用于开发和调试内核模块或驱动程序。</li>
+</ul>
+</li>
+</ul>
+<h2 id="3、XNU"><a href="#3、XNU" class="headerlink" title="3、XNU"></a>3、XNU</h2><h3 id="（1）XNU-概述"><a href="#（1）XNU-概述" class="headerlink" title="（1）XNU 概述"></a>（1）XNU 概述</h3><p>内核 XNU 是 Darwin 的核心，也是整个 iOS 的核心。XNU 是 “X is Not Unix” 的缩写，这是一个带有调侃意味的命名。Unix 社区有一种幽默文化，喜欢用反讽或自嘲的方式命名项目。例如：</p>
+<ul>
+<li>GNU：GNU’s Not Unix，是一个递归缩写，表明 GNU 项目虽然与 Unix 兼容，但不是 Unix。</li>
+<li>PINE：”Pine Is Not Elm”，PINE 是一个邮件客户端，名字表明它不是另一个著名的 Unix 邮件客户端 Elm。</li>
+</ul>
+<p>XNU 虽然是 “X is Not Unix” 的缩写，但它仍然深受 UNIX 的设计影响，特别是在 BSD 方面，XNU 通过 BSD 提供了与 UNIX 兼容的功能，使得许多 UNIX 应用程序可以在 macOS 和 iOS 上运行。</p>
+<p>1969 年，Ken Thompson 和 Dennis Ritchie 等人在贝尔实验室开发了操作系统 UNIX，UNIX 的设计强调简单性、可移植性、模块化和多用户支持，这些设计原则影响了许多后来的操作系统。UNIX 并不是一个开源的操作系统，但在 1970 年代和 1980 年代，AT&amp;T（贝尔实验室的母公司）通过许可协议将 UNIX 源代码提供给学术机构和商业公司，加州大学伯克利分校就是这些学术机构之一。</p>
+<p>加州大学伯克利分校的计算机系统研究小组（CSRG）在 UNIX 的基础上进行了大量的改进和扩展，开发出了 BSD 系列操作系统。在 1990 年代，BSD 社区进行了大量工作，以移除 BSD 版本中所有 AT&amp;T 的专有代码。最终在 1994 年发布了 BSD 的新版本 4.4BSD-Lite，这个版本 BSD 已经不含 AT&amp;T 的专有代码。4.4BSD-Lite 及其后续版本是完全开源的，任何人都可以自由使用、修改和分发这些代码，这使得 BSD 系统成为真正的开源 UNIX 实现。</p>
+<p>BSD 系统引入了许多关键技术和概念，如虚拟内存、TCP&#x2F;IP 网络协议栈、文件系统（如 FFS）等，BSD 的开源发布为后来的开源操作系统奠定了基础，许多开源项目直接或间接地受益于 BSD 的代码和设计。FreeBSD、OpenBSD、NetBSD 是三个比较著名的 BSD 血统的操作系统：</p>
+<ul>
+<li>FreeBSD<ul>
+<li>一个基于 4.4BSD-Lite 的开源操作系统，以其高性能和先进的网络功能著称。</li>
+</ul>
+</li>
+<li>OpenBSD<ul>
+<li>专注于安全性和代码审计的开源操作系统。</li>
+</ul>
+</li>
+<li>NetBSD<ul>
+<li>以其可移植性著称，支持多种硬件平台的开源操作系统。</li>
+</ul>
+</li>
+</ul>
+<p>其中，FreeBSD 以其高性能、稳定性和丰富的网络功能著称，广泛用于服务器和嵌入式系统。Darwin 中的 BSD 就是基于 FreeBSD 进行开发的，XNU 中的 BSD 为 Darwin 提供了 POSIX 兼容的 API 和工具集，让 Darwin 具备了与 Unix 类操作系统兼容的功能，使得许多 UNIX 应用程序可以在 macOS 和 iOS 上运行。</p>
+<h3 id="（2）XNU-的架构"><a href="#（2）XNU-的架构" class="headerlink" title="（2）XNU 的架构"></a>（2）XNU 的架构</h3><p>所有操作系统的架构上，都包含内核，但内核的设计上却有所不同。目前主流的，主要有三种风格的内核：宏内核、微内核和混合内核。</p>
+<h4 id="宏内核"><a href="#宏内核" class="headerlink" title="宏内核"></a>宏内核</h4><p>宏内核又称 “巨内核”、”单内核”，这是一个比较经典的内核架构，也是  UNIX 和 Linux 世界采用的主要内核架构。宏内核的特点是将所有内核功能全部放在一个地址空间中。</p>
+<p>宏内核大致架构如下图：<br><img src="/images/lix_blog_214.png"><br>宏内核将所有内核功能全部放在一个地址空间中，并且将这个地址空间映射到每一个进程的内存中。这种设计使得除了硬件强制的内核态和用户态之间的隔离外，用户态和内核态其实没有任何分别，所以从用户态到内核态的切换非常高效，基本上就相当于一次线程切换的开销。</p>
+<h4 id="微内核"><a href="#微内核" class="headerlink" title="微内核"></a>微内核</h4><p>微内核并不像宏内核那么常见，微内核的特点是内核只包含最核心的内核功能，通常包括进程间通信（IPC）、线程管理、虚拟内存管理、时钟和定时器等。</p>
+<p>内核功能之外的部分全部交给各个独立的用户态服务程序完成，这些用户态服务程序包括文件系统服务、网络协议栈服务、进程管理服务等。服务程序之间的所有通信都由消息传递完成。消息传递机制允许将消息(通常都是透明的)以及后续消息投递至服务程序的队列中排队，服务程序可以从队列中取出消息并且依次处理。</p>
+<p>微内核大致架构如下图：<br><img src="/images/lix_blog_215.png"></p>
+<p>微内核由于功能简单、代码量少，所以相较于宏内核，微内核更加稳定，并且更容易移植到其他平台。</p>
+<p>但微内核也有其显著的缺点，微内核的消息传递在底层需要通过内存复制操作以及数次上下文切换操作来实现，而这些操作对计算速度的影响都不小。这一个缺点太严重了，所以“纯粹” 的微内核操作系统基本上只具有学术意义，而没有商业应用，在现代操作系统中则更少见。</p>
+<h4 id="混合内核"><a href="#混合内核" class="headerlink" title="混合内核"></a>混合内核</h4><p>混合内核就是同时包含宏内核和微内核的架构，同时吸收了两种内核架构的优点，兼顾了健壮性、可移植性和运行效率。内核中最核心的部分，如进程间通信（IPC）、线程管理、虚拟内存管理、时钟和定时器等，仍然由微内核负责，其余部分则交由宏内核负责，并且都在内核态之中，而且都在同一个内存空间之中。</p>
+<p>XNU 是一个由宏内核 BSD 与微内核 Mach 组成的混合内核：<br><img src="/images/lix_blog_216.png"><br>XNU 主要由三部分组成：</p>
+<ul>
+<li><p><strong>Mach</strong></p>
+<ul>
+<li>Mach 最初是一个在卡内基梅隆大学(CMU)开发的研究型操作系统，致力于研制一个用于操作系统的轻量级且高效的平台。</li>
+<li>Mach 提供内核最基础的 API 和功能，主要包括：<ul>
+<li>进程间通信（IPC）</li>
+<li>线程管理和调度</li>
+<li>虚拟内存管理</li>
+<li>时钟和定时器</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>BSD</strong></p>
+<ul>
+<li>BSD 建立在 Mach 之上，提供了 POSIX 标准的 API，使得许多 UNIX 应用程序可以在 macOS 和 iOS 上运行。</li>
+<li>BSD 提供了更高层次的抽象功能，主要包括：<ul>
+<li>文件系统访问</li>
+<li>进程管理</li>
+<li>资源控制</li>
+<li>网络协议栈</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>I&#x2F;O Kit</strong></p>
+<ul>
+<li>一个面向对象的框架，用于开发设备驱动程序，提供了与硬件交互的标准接口，提高驱动程序的安全性和可维护性。</li>
+</ul>
+</li>
+</ul>
+<p>XNU 也是完全开源的，GitHub 链接是：<a target="_blank" rel="noopener" href="https://github.com/apple-oss-distributions/xnu">https://github.com/apple-oss-distributions/xnu</a></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#架构" >
+    <span class="tag-code">架构</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/15823/">
+        <span class="nav-arrow">← </span>
+        
+          文件 IO 与 mmap
+        
+      </a>
+    
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/28259/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="1、block 的底层结构假设对于以下 block： 12345int a &#x3D; 10;void (^myblock)(void) &#x3D; ^&#123;    NSLog(@&quot;myblock is %d&quot;,a); &#x2F;&#x2F; 注意，block 内部访问了外部变量&#125;;myblock(); 将以上代码转换成对应的 C++ 代码，可以看到，Block 底层的结构如下：(备注：上图 _">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Block 实现原理">
+<meta property="og:url" content="https://www.lixkit.com/posts/42759/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="1、block 的底层结构假设对于以下 block： 12345int a &#x3D; 10;void (^myblock)(void) &#x3D; ^&#123;    NSLog(@&quot;myblock is %d&quot;,a); &#x2F;&#x2F; 注意，block 内部访问了外部变量&#125;;myblock(); 将以上代码转换成对应的 C++ 代码，可以看到，Block 底层的结构如下：(备注：上图 _">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_26.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_27.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_28.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_29.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_30.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_31.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_32.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_33.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_34.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_35.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_36.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_204.png">
+<meta property="article:published_time" content="2020-04-10T21:22:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.900Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="block">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_26.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      Block 实现原理 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>Block 实现原理</h2>
+  <p class="post-date">2020-04-10</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="1、block-的底层结构"><a href="#1、block-的底层结构" class="headerlink" title="1、block 的底层结构"></a>1、block 的底层结构</h2><p>假设对于以下 block：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> a = <span class="number">10</span>;</span><br><span class="line"><span class="type">void</span> (^myblock)(<span class="type">void</span>) = ^&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;myblock is %d&quot;</span>,a); <span class="comment">// 注意，block 内部访问了外部变量</span></span><br><span class="line">&#125;;</span><br><span class="line">myblock();</span><br></pre></td></tr></table></figure>
+<p>将以上代码转换成对应的 C++ 代码，可以看到，Block 底层的结构如下：<br><img src="/images/lix_blog_26.png"><br><em>(备注：上图 __main_block_func_0 函数里实际上还有 block 里 <code>NSLog(@&quot;myblock is %d&quot;,a);</code>相关代码，为了看起来方便，这里直接去掉了。)</em></p>
+<ul>
+<li>impl 是 block 的实现，其中包含了 isa 指针以及 block 函数实现。</li>
+<li>Desc 是 block 的描述信息，包含了 block 大小等信息。</li>
+<li>如果 block 内部还访问了局部变量，block 结构体中还会包含捕获的局部变量。</li>
+</ul>
+<p>block 结构体的第一个成员变量是结构体(不是结构体指针) <code>__block_impl impl</code>，所以，block 结构体相当于就是：<br><img src="/images/lix_blog_27.png"><br>从 block 的结构体包含 isa 指针可以看出，<font color=#ff0000>block 的本质就是一个对象，</font>NSBlock 对象也是继承自 NSObject 对象的。并且如果 block 访问了外部变量的话，还会把外部变量包装到自己内部。</p>
+<p>.cpp 中关于执行 block 的逻辑如下：<br><img src="/images/lix_blog_28.png"><br>可以看出，执行 block，实际上就是 <code>block-&gt;FuncPtr()</code>，也就是通过 block 对象执行其实现函数。</p>
+<h2 id="2、外部变量的捕获"><a href="#2、外部变量的捕获" class="headerlink" title="2、外部变量的捕获"></a>2、外部变量的捕获</h2><p>当在 block 内访问外部变量时，block 对变量的捕获方式如下：<br><img src="/images/lix_blog_29.png"><br>例如，对于以下代码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> test()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> a = <span class="number">1</span>; <span class="comment">// auto</span></span><br><span class="line">    <span class="keyword">static</span> <span class="type">int</span> b = <span class="number">2</span>; <span class="comment">// static</span></span><br><span class="line">    block = ^&#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@&quot;a is %d, b is %d&quot;</span>, a, b);</span><br><span class="line">    &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中有一个 auto 变量 a（对于一个局部变量，无论是基本数据类型还是 OC 对象类型，默认就是 auto 变量）、一个 static 变量 b，将代码转换成   C++ 代码，如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> __test_block_impl_0 &#123;</span><br><span class="line">  <span class="keyword">struct</span> __block_impl impl;</span><br><span class="line">  <span class="keyword">struct</span> __test_block_desc_0* Desc;</span><br><span class="line">  <span class="type">int</span> a;</span><br><span class="line">  <span class="type">int</span> *b;</span><br><span class="line">  __test_block_impl_0(<span class="type">void</span> *fp, <span class="keyword">struct</span> __test_block_desc_0 *desc, <span class="type">int</span> _a, <span class="type">int</span> *_b, <span class="type">int</span> flags=<span class="number">0</span>) : a(_a), b(_b) &#123;</span><br><span class="line">    impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">    impl.Flags = flags;</span><br><span class="line">    impl.FuncPtr = fp;</span><br><span class="line">    Desc = desc;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>可以发现，对于局部变量，访问 auto 变量，block 捕获的是其值，而访问 static 变量，block 捕获的是指针，所以在 block 内部可以直接修改 static 局部变量的值，但不可以修改 auto 变量的值。</p>
+<p>对于全局变量，可以保证变量的生命周期足够长，block 内部也就没有必要再去捕获，block 内部访问全局变量直接访问即可，也可以在 block 内部直接修改全局变量。</p>
+<p>如果在 block 内部访问了 <code>self</code>，block 也会捕获 <code>self</code>，因为 <code>self</code> 是局部变量。如果访问了 <code>self</code> 内部的属性，捕获的也是 <code>self</code>，而不是内部具体的属性。为什么 <code>self</code> 是局部变量呢？我们在方法内能访问 <code>self</code>，是因为 OC 方法在底层转换为 C 语言函数后，会默认自动带上 <code>self</code> 和 <code>_cmd</code> 两个参数，我们在方法内部访问的 <code>self</code> 实际上就是参数传进来的 <code>self</code>，方法的参数也是一种局部变量。</p>
+<p>当 block 内部访问了对象类型的 auto 变量时：</p>
+<ul>
+<li><p>如果 block 是在栈上，将不会对 auto 变量产生强引用</p>
+</li>
+<li><p>如果 block 被拷贝到堆上</p>
+<ul>
+<li>会调用 block 内部的 <code>copy</code> 函数</li>
+<li><code>copy</code> 函数内部会调用 <code>_Block_object_assign</code> 函数</li>
+<li><code>_Block_object_assign</code> 函数会根据 auto 对象类型变量的修饰符（<code>__strong</code>、<code>__weak</code>、<code>__unsafe_unretained</code>）做出相应的操作，形成强引用（retain）或者弱引用</li>
+</ul>
+</li>
+<li><p>如果 block 从堆上移除</p>
+<ul>
+<li>会调用 block 内部的 <code>dispose</code> 函数</li>
+<li><code>dispose</code> 函数内部会调用 <code>_Block_object_dispose</code> 函数</li>
+<li><code>_Block_object_dispose</code> 函数会自动释放引用的 auto 变量（release）</li>
+</ul>
+</li>
+</ul>
+<h2 id="3、block-类型"><a href="#3、block-类型" class="headerlink" title="3、block 类型"></a>3、block 类型</h2><p>block 有 3 种类型，可以通过调用 class 方法（例如：[myBlock class]）或者 isa 指针查看具体类型，最终都是继承自 NSBlock 类型。<br><strong>Block 的三种类型：</strong></p>
+<ul>
+<li>全局 block<br><code>__NSGlobalBlock__</code> （ <code>_NSConcreteGlobalBlock</code> ）</li>
+<li>栈 block<br><code>__NSStackBlock__</code> （ <code>_NSConcreteStackBlock</code> ）</li>
+<li>堆 block<br><code>__NSMallocBlock__</code> （ <code>_NSConcreteMallocBlock</code> ）</li>
+</ul>
+<p><strong>在 MRC 情况下：</strong><br><img src="/images/lix_blog_30.png"><br><strong>在 ARC 情况下：</strong><br>在 ARC 环境下，为了延长 block 的生命周期，避免栈 block 那样作用域结束 block 就被废弃的情况，编译器会根据需要自动将栈上的 block 复制到堆上（变成堆 block），复制到堆上调用的就是 block 的 <code>copy</code> 方法，比如以下情况：</p>
+<ul>
+<li>block 作为函数返回值时</li>
+<li>将 block 赋值给 <code>__strong</code> 指针时</li>
+<li>block 作为 Cocoa API 中方法名含有 <code>usingBlock</code> 的方法参数时</li>
+<li>block 作为 GCD API 的方法参数时</li>
+</ul>
+<p>MRC 下 block 属性的建议写法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">copy</span>) <span class="type">void</span> (^block)(<span class="type">void</span>);</span><br></pre></td></tr></table></figure>
+<p>ARC 下 block 属性的建议写法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">strong</span>) <span class="type">void</span> (^block)(<span class="type">void</span>);</span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">copy</span>) <span class="type">void</span> (^block)(<span class="type">void</span>);</span><br></pre></td></tr></table></figure>
+<h2 id="4、-block-修饰符"><a href="#4、-block-修饰符" class="headerlink" title="4、__block 修饰符"></a>4、__block 修饰符</h2><p>如果我们直接在 block 中修改 auto 变量，编译器会报错，要求使用 <code>__block</code> 修饰 auto 变量，如下：<br><img src="/images/lix_blog_31.png"></p>
+<p>当使用 <code>__block</code> 修饰了 auto 变量后，就不再报错，并且成功修改了 auto 变量的值：<br><img src="/images/lix_blog_32.png"><br>备注：<br>向下面这样就不需要使用 <code>__block</code> 修饰仍然可以生效，因为 block 相当于只是使用了变量，而不是直接修改了对象的值：<br><img src="/images/lix_blog_33.png"></p>
+<h3 id="1-block-修饰符作用"><a href="#1-block-修饰符作用" class="headerlink" title="(1) __block 修饰符作用"></a>(1) __block 修饰符作用</h3><ul>
+<li><code>__block</code> 可以用于解决 block 内部无法修改 auto 变量值的问题</li>
+<li><code>__block</code> 不能修饰全局变量、静态变量（static）</li>
+<li>编译器会将<code> __block</code> 修饰的变量包装成一个对象</li>
+</ul>
+<p>接下来将前述的代码转成 C++ 代码，看下 <code>__block</code> 修饰 auto 变量后的逻辑：<br><img src="/images/lix_blog_34.png"></p>
+<p><img src="/images/lix_blog_35.png"><br>从上述 C++ 代码可知，当使用 <code>__block</code> 修饰了 auto 变量 age 后：</p>
+<ul>
+<li><p>会在当前 block 结构体创建 <code>__Block_byref_age_0</code> 结构体类型的指针成员变量。<br><code>__Block_byref_age_0 *age;</code></p>
+</li>
+<li><p><code>__Block_byref_age_0</code> 结构体中包含 isa 指针，所以也是一个对象。<br><code>void *__isa;</code></p>
+</li>
+<li><p><code>__Block_byref_age_0</code> 结构体中包含一个指向自己的指针 __forwarding。<br><code>__Block_byref_age_0 *__forwarding;</code></p>
+</li>
+<li><p><code>__Block_byref_age_0</code> 结构体中包含了之前在 block 中访问的、被 <code>__block</code> 修饰的 auto 变量。<br><code>int age;</code></p>
+</li>
+<li><p>当在 block 中修改被 <code>__block</code> 修饰的 auto 变量时，是通过 <code>__forwarding</code> 间接修改的。<br><code>(age-&gt;__forwarding-&gt;age) = 200;</code></p>
+</li>
+<li><p>并且，当 block 访问了<code>__block</code> 修饰的 auto 变量后，block 结构体中的 <code>Desc</code> 结构体多了 <code>copy</code> 和 <code>dispose</code> 两个和内存管理有关的两个函数。</p>
+</li>
+</ul>
+<h3 id="2-forwarding-指针的作用"><a href="#2-forwarding-指针的作用" class="headerlink" title="(2) __forwarding 指针的作用"></a>(2) __forwarding 指针的作用</h3><p>从上述可知，当在 block 中修改被 <code>__block</code> 修饰的 auto 变量时，是通过 <code>__forwarding</code> 间接修改的。<br>现在将对应的 C++ 代码中结构体拿出来，对 block 强制转换成对应结构体类型：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> __Block_byref_age_0 &#123;</span><br><span class="line">    <span class="type">void</span> *__isa;</span><br><span class="line">    <span class="keyword">struct</span> __Block_byref_age_0 *__forwarding;</span><br><span class="line">    <span class="type">int</span> __flags;</span><br><span class="line">    <span class="type">int</span> __size;</span><br><span class="line">    <span class="type">int</span> age;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> __main_block_desc_0 &#123;</span><br><span class="line">    size_t reserved;</span><br><span class="line">    size_t Block_size;</span><br><span class="line">    <span class="type">void</span> (*<span class="keyword">copy</span>)(<span class="type">void</span>);</span><br><span class="line">    <span class="type">void</span> (*dispose)(<span class="type">void</span>);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> __block_impl &#123;</span><br><span class="line">    <span class="type">void</span> *isa;</span><br><span class="line">    <span class="type">int</span> Flags;</span><br><span class="line">    <span class="type">int</span> Reserved;</span><br><span class="line">    <span class="type">void</span> *FuncPtr;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> __main_block_impl_0 &#123;</span><br><span class="line">    <span class="keyword">struct</span> __block_impl impl;</span><br><span class="line">    <span class="keyword">struct</span> __main_block_desc_0* Desc;</span><br><span class="line">    <span class="keyword">struct</span> __Block_byref_age_0 *age;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> main(<span class="type">int</span> argc, <span class="keyword">const</span> <span class="type">char</span> * argv[]) &#123;</span><br><span class="line">    <span class="keyword">@autoreleasepool</span> &#123;</span><br><span class="line">        </span><br><span class="line">        __block <span class="type">int</span> age = <span class="number">100</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="type">void</span> (^block)(<span class="type">void</span>) = ^&#123;</span><br><span class="line">            age = <span class="number">200</span>;</span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;my age is %d&quot;</span>, age);</span><br><span class="line">        &#125;;</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">struct</span> __main_block_impl_0 *blockImpl = (__bridge <span class="keyword">struct</span> __main_block_impl_0 *)block;</span><br><span class="line">        </span><br><span class="line">        block();</span><br><span class="line">        </span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>断点调试结果如下，验证了前述的结论：<br><img src="/images/lix_blog_36.png"><br>为什么 block 在修改 <code>__block</code> 修饰的 <code>age</code> 变量时候，要通过 <code>__Block_byref_age_0</code> 结构体中指向结构体自身的 <code>__forwarding</code> 指针去间接找到自己成员变量 <code>age</code> 然后去修改呢？</p>
+<p>这样设计的目的是为了方便内存管理。block 被复制到堆上时，会将 block 中引用的变量也复制到堆中。</p>
+<p>重新看下源码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">void</span> __main_block_func_0(<span class="keyword">struct</span> __main_block_impl_0 *__cself) &#123;</span><br><span class="line">  __Block_byref_age_0 *age = __cself-&gt;age; <span class="comment">// bound by ref</span></span><br><span class="line">            (age-&gt;__forwarding-&gt;age) = <span class="number">200</span>;</span><br><span class="line">            <span class="built_in">NSLog</span>((<span class="built_in">NSString</span> *)&amp;__NSConstantStringImpl__var_folders_jm_dztwxsdn7bvbz__xj2vlp8980000gn_T_main_b05610_mi_0,(age-&gt;__forwarding-&gt;age));</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+<p>通过源码可以知道，当修改 <code>__block</code> 修饰的变量时，是根据变量生成的结构体 <code>__Block_byref_age_0</code> 找到其中 <code>__forwarding</code> 指针，<code>__forwarding</code> 指针指向的是结构体自己，因此可以找到 <code>age</code> 变量进行修改。</p>
+<p>当 block 在栈中时，<code>__Block_byref_age_0</code> 结构体内的 <code>__forwarding</code> 指针指向结构体自己。</p>
+<p>而当 block 被复制到堆中时，栈中的 <code>__Block_byref_age_0</code> 结构体也会被复制到堆中一份，而此时栈中的 <code>__Block_byref_age_0</code> 结构体中的 <code>__forwarding</code> 指针指向的就是堆中的 <code>__Block_byref_age_0</code> 结构体，堆中 <code>__Block_byref_age_0</code> 结构体内的 <code>__forwarding</code> 指针依然指向自己。</p>
+<p>此时当对 age 进行修改时：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 栈中的age</span></span><br><span class="line">__Block_byref_age_0 *age = __cself-&gt;age; <span class="comment">// bound by ref</span></span><br><span class="line"><span class="comment">// age-&gt;__forwarding获取堆中的age结构体</span></span><br><span class="line"><span class="comment">// age-&gt;__forwarding-&gt;age 修改堆中age结构体的age变量</span></span><br><span class="line">(age-&gt;__forwarding-&gt;age) = <span class="number">200</span>;</span><br></pre></td></tr></table></figure>
+<p>通过 <code>__forwarding</code> 指针巧妙的将修改的变量赋值在堆中的 <code>__Block_byref_age_0</code> 中。</p>
+<p>通过一张图展示 <code>__forwarding</code> 指针的作用：<br><img src="/images/lix_blog_204.png" alt="upload successful"><br>因此 block 内部拿到的变量实际就是在堆上的。当 block 进行 <code>copy</code> 被复制到堆上时，<code>_Block_object_assign</code> 函数内做的这一系列操作。</p>
+<h3 id="3-block-的内存管理"><a href="#3-block-的内存管理" class="headerlink" title="(3)__block 的内存管理"></a>(3)__block 的内存管理</h3><p><strong>对 <code>__block</code> 变量的引用：</strong></p>
+<ul>
+<li>当 block 在栈上时，并不会对 <code>__block</code> 变量产生强引用</li>
+<li>当 block 被 <code>copy</code> 到堆时<ul>
+<li>会调用 block 内部的 <code>copy</code> 函数</li>
+<li><code>copy</code> 函数内部会调用 <code>_Block_object_assign</code> 函数</li>
+<li>利用 <code>_Block_object_assign</code> 函数对 <code>__block</code> 变量的进行相应持有<ul>
+<li>编译器会将 <code>__block</code> 变量包装成一个结构体对象 A（例如前述的 <code>struct __Block_byref_age_0 *age</code>，并对这个结构体对象 A 进行强引用。</li>
+<li>对于 OC 对象，<code>_Block_object_assign</code> 函数会根据所指向对象的修饰符（<code>__strong</code>、<code>__weak</code>、<code>__unsafe_unretained</code>）做出相应的操作，在结构体对象 A 中形成强引用（<code>retain</code>）或者弱引用（注意：这里仅限于 ARC 时会 <code>retain</code>，MRC 时不会 <code>retain</code>）</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>简而言之，block 访问了 <code>__block</code> 修饰的 auto 变量，编译器会自动生成对应的结构体对象，block 会对这个结构体对象进行强引用，但是这个结构体对象内部对 auto 变量是强引用还是弱引用，取决于这个 auto 变量对象修饰符（<code>__strong</code>、<code>__weak</code>、<code>__unsafe_unretained</code>）。</p>
+<p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="type">void</span> (^Block)(<span class="type">void</span>);</span><br><span class="line"><span class="type">int</span> main(<span class="type">int</span> argc, <span class="keyword">const</span> <span class="type">char</span> * argv[]) &#123;</span><br><span class="line">    <span class="keyword">@autoreleasepool</span> &#123;</span><br><span class="line">        <span class="type">int</span> number = <span class="number">20</span>;</span><br><span class="line">        __block <span class="type">int</span> age = <span class="number">10</span>;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">NSObject</span> *object = [[<span class="built_in">NSObject</span> alloc] init];</span><br><span class="line">        __<span class="keyword">weak</span> <span class="built_in">NSObject</span> *weakObj = object;</span><br><span class="line"></span><br><span class="line">        Person *p = [[Person alloc] init];</span><br><span class="line">        __block Person *person = p;</span><br><span class="line">        __block __<span class="keyword">weak</span> Person *weakPerson = p;</span><br><span class="line"></span><br><span class="line">        Block block = ^ &#123;</span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%d&quot;</span>,number); <span class="comment">// 局部变量</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%d&quot;</span>,age); <span class="comment">// __block修饰的局部变量</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%p&quot;</span>,object); <span class="comment">// 对象类型的局部变量</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%p&quot;</span>,weakObj); <span class="comment">// __weak修饰的对象类型的局部变量</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%p&quot;</span>,person); <span class="comment">// __block修饰的对象类型的局部变量</span></span><br><span class="line">            <span class="built_in">NSLog</span>(<span class="string">@&quot;%p&quot;</span>,weakPerson); <span class="comment">// __block，__weak修饰的对象类型的局部变量</span></span><br><span class="line">        &#125;;</span><br><span class="line">        block();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将上述代码转化为 C++ 代码查看不同变量之间的区别:</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> __main_block_impl_0 &#123;</span><br><span class="line">  <span class="keyword">struct</span> __block_impl impl;</span><br><span class="line">  <span class="keyword">struct</span> __main_block_desc_0* Desc;</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> number;</span><br><span class="line">  <span class="built_in">NSObject</span> *__<span class="keyword">strong</span> object;</span><br><span class="line">  <span class="built_in">NSObject</span> *__<span class="keyword">weak</span> weakObj;</span><br><span class="line">  __Block_byref_age_0 *age; <span class="comment">// by ref</span></span><br><span class="line">  __Block_byref_person_1 *person; <span class="comment">// by ref</span></span><br><span class="line">  __Block_byref_weakPerson_2 *weakPerson; <span class="comment">// by ref</span></span><br><span class="line"></span><br><span class="line">  __main_block_impl_0(<span class="type">void</span> *fp, <span class="keyword">struct</span> __main_block_desc_0 *desc, <span class="type">int</span> _number, <span class="built_in">NSObject</span> *__<span class="keyword">strong</span> _object, <span class="built_in">NSObject</span> *__<span class="keyword">weak</span> _weakObj, __Block_byref_age_0 *_age, __Block_byref_person_1 *_person, __Block_byref_weakPerson_2 *_weakPerson, <span class="type">int</span> flags=<span class="number">0</span>) : number(_number), object(_object), weakObj(_weakObj), age(_age-&gt;__forwarding), person(_person-&gt;__forwarding), weakPerson(_weakPerson-&gt;__forwarding) &#123;</span><br><span class="line">    impl.isa = &amp;_NSConcreteStackBlock;</span><br><span class="line">    impl.Flags = flags;</span><br><span class="line">    impl.FuncPtr = fp;</span><br><span class="line">    Desc = desc;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>上述 <code>__main_block_impl_0</code> 结构体中看出，没有使用 <code>__block</code> 修饰的变量（<code>object</code> 和 <code>weakObj</code>）则根据他们本身被 block 捕获的指针类型对他们进行强引用或弱引用。而一旦使用 <code>__block</code> 修饰的变量，<code>__main_block_impl_0 </code>结构体内一律使用强指针引用生成的结构体。</p>
+<p>接着我们来看 <code>__block</code> 修饰的变量生成的结构体有什么不同：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> __Block_byref_age_0 &#123;</span><br><span class="line">  <span class="type">void</span> *__isa;</span><br><span class="line">__Block_byref_age_0 *__forwarding;</span><br><span class="line"> <span class="type">int</span> __flags;</span><br><span class="line"> <span class="type">int</span> __size;</span><br><span class="line"> <span class="type">int</span> age;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> __Block_byref_person_1 &#123;</span><br><span class="line">  <span class="type">void</span> *__isa;</span><br><span class="line">__Block_byref_person_1 *__forwarding;</span><br><span class="line"> <span class="type">int</span> __flags;</span><br><span class="line"> <span class="type">int</span> __size;</span><br><span class="line"> <span class="type">void</span> (*__Block_byref_id_object_copy)(<span class="type">void</span>*, <span class="type">void</span>*);</span><br><span class="line"> <span class="type">void</span> (*__Block_byref_id_object_dispose)(<span class="type">void</span>*);</span><br><span class="line"> Person *__<span class="keyword">strong</span> person;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> __Block_byref_weakPerson_2 &#123;</span><br><span class="line">  <span class="type">void</span> *__isa;</span><br><span class="line">__Block_byref_weakPerson_2 *__forwarding;</span><br><span class="line"> <span class="type">int</span> __flags;</span><br><span class="line"> <span class="type">int</span> __size;</span><br><span class="line"> <span class="type">void</span> (*__Block_byref_id_object_copy)(<span class="type">void</span>*, <span class="type">void</span>*);</span><br><span class="line"> <span class="type">void</span> (*__Block_byref_id_object_dispose)(<span class="type">void</span>*);</span><br><span class="line"> Person *__<span class="keyword">weak</span> weakPerson;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>如上面分析的那样，<code>__block</code> 修饰对象类型的变量生成的结构体内部多了 <code>__Block_byref_id_object_copy</code> 和 <code>__Block_byref_id_object_dispose</code> 两个函数，用来对对象类型的变量进行内存管理的操作。而结构体对对象的引用类型，则取决于 block 捕获的对象类型的变量。<code>weakPerson</code> 是弱指针，所以 <code>__Block_byref_weakPerson_2</code> 对 <code>weakPerson</code> 就是弱引用，<code>person</code> 是强指针，所以 <code>__Block_byref_person_1</code> 对 <code>person</code> 就是强引用。</p>
+<p><strong>对 <code>__block</code> 变量的释放：</strong><br>当 block 从堆中移除时</p>
+<ul>
+<li>会调用 block 内部的 <code>dispose</code> 函数<br>+<code> dispose</code> 函数内部会调用 <code>_Block_object_dispose</code> 函数</li>
+<li><code>_Block_object_dispose</code> 函数会自动释放引用的 <code>__block</code> 变量（<code>release</code>）</li>
+</ul>
+<h2 id="5、block-的循环引用"><a href="#5、block-的循环引用" class="headerlink" title="5、block 的循环引用"></a>5、block 的循环引用</h2><h3 id="1-Block-内访问-self-导致的循环引用"><a href="#1-Block-内访问-self-导致的循环引用" class="headerlink" title="(1) Block 内访问 self 导致的循环引用"></a>(1) Block 内访问 self 导致的循环引用</h3><p>在 Block 内部访问 访问 <code>self</code> 可能会导致循环引用，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)testFunc &#123;</span><br><span class="line">    <span class="keyword">self</span>.TestBlock = ^&#123;</span><br><span class="line">        <span class="keyword">self</span>.name = <span class="string">@&quot;lifengfeng&quot;</span>;</span><br><span class="line">    &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>解决办法是使用 <code>__weak</code> 修饰 <code>self</code>，为了延长 <code>self</code> 生命周期，避免 Block 在执行过程中 <code>self</code> 被销毁，在 block 内部使用 <code>__strong</code> 修饰的 <code>self</code>：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)testFunc &#123;</span><br><span class="line">    __<span class="keyword">weak</span> <span class="keyword">typeof</span>(<span class="keyword">self</span>) weakSelf = <span class="keyword">self</span>;</span><br><span class="line">    <span class="keyword">self</span>.TestBlock = ^&#123;</span><br><span class="line">        __<span class="keyword">strong</span> <span class="keyword">typeof</span>(weakSelf) strongSelf = weakSelf;</span><br><span class="line">        strongSelf.name = <span class="string">@&quot;lifengfeng&quot;</span>;</span><br><span class="line">    &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>但是，为什么 Block 内部使用 <code>__strong</code> 修饰 <code>self</code> 后，为什么不会重新循环引用呢？</strong><br>很简单，Block 外部使用 <code>__weak</code> 修饰 <code>self</code>，会使 Block 捕获 <code>self</code> 时候对 <code>self</code> 进行弱引用，内部再使用 <code>__strong</code> 修饰 <code>self</code>，相当于在 Block 对应函数实现里对 <code>self</code> 进行一次引用计数 +1，延长了 <code>self</code> 的生命周期，但 Block 对捕获的 <code>self</code> 仍然是弱引用的。</p>
+<h3 id="2-NSTimer-导致的循环引用"><a href="#2-NSTimer-导致的循环引用" class="headerlink" title="(2) NSTimer 导致的循环引用"></a>(2) NSTimer 导致的循环引用</h3><p>例如，使用 <code>NSTimer</code> 可能产生循环引用：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">self</span>.timer = [<span class="built_in">NSTimer</span> scheduledTimerWithTimeInterval:<span class="number">1.0</span> target:<span class="keyword">self</span> selector:<span class="keyword">@selector</span>(timerTest) userInfo:<span class="literal">nil</span> repeats:<span class="literal">YES</span>];</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>NSTimer</code> 循环引用的原因：</strong><br><code>NSTimer</code> 被添加到主线程的 RunLoop 中，在停止 <code>NSTimer</code> 之前，<code>NSTimer</code> 会被 RunLoop 一直持有。而 <code>NSTimer</code> 又持有了 Target，导致了 Target 无法释放。</p>
+<p>其解决办法主要有下面三种方式：</p>
+<h4 id="a、使用-block"><a href="#a、使用-block" class="headerlink" title="a、使用 block"></a>a、使用 block</h4><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">__<span class="keyword">weak</span> <span class="keyword">typeof</span>(<span class="keyword">self</span>) weakself = <span class="keyword">self</span>;</span><br><span class="line"><span class="keyword">self</span>.timer = [<span class="built_in">NSTimer</span> scheduledTimerWithTimeInterval:<span class="number">1.0</span> repeats:<span class="literal">YES</span> block:^(<span class="built_in">NSTimer</span> * _Nonnull timer) &#123;</span><br><span class="line">    [weakself timerTest];</span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
+<h4 id="b、使用代理对象"><a href="#b、使用代理对象" class="headerlink" title="b、使用代理对象"></a>b、使用代理对象</h4><figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// XXXProxy.h</span></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">XXXProxy</span> : <span class="title">NSObject</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyWithTarget:(<span class="type">id</span>)target;</span><br><span class="line"><span class="comment">// 注意这里是 weak</span></span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">weak</span>, <span class="keyword">nonatomic</span>) <span class="type">id</span> target;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// XXXProxy.m</span></span><br><span class="line"><span class="meta">#import <span class="string">&quot;XXXProxy.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">XXXProxy</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyWithTarget:(<span class="type">id</span>)target</span><br><span class="line">&#123;</span><br><span class="line">    XXXProxy *proxy = [[XXXProxy alloc] init];</span><br><span class="line">    proxy.target = target;</span><br><span class="line">    <span class="keyword">return</span> proxy;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="type">id</span>)forwardingTargetForSelector:(SEL)aSelector</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">self</span>.target;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>使用方式：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">self</span>.timer = [<span class="built_in">NSTimer</span> scheduledTimerWithTimeInterval:<span class="number">1.0</span> target:[XXXProxy proxyWithTarget:<span class="keyword">self</span>] selector:<span class="keyword">@selector</span>(timerTest) userInfo:<span class="literal">nil</span> repeats:<span class="literal">YES</span>];</span><br></pre></td></tr></table></figure>
+<p>这样就避免了循环引用。</p>
+<p>这里使用的是我们自己继承自 <code>NSObject</code> 实现的代理对象，但是系统提供了一个效率更高的代理对象：<code>NSProxy</code>，使用该对象做代理时，不再从自己方法列表查找方法，直接走消息转发流程，而且该类不是继承自 <code>NSObject</code> 的，而是实现 <code>&lt;NSObject&gt;</code> 协议的基类：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">NSProxy</span> &lt;<span class="title">NSObject</span>&gt; </span>&#123;</span><br><span class="line">    Class   isa;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>使用方式如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// XXXProxy.h</span></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">XXXProxy</span> : <span class="title">NSProxy</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyWithTarget:(<span class="type">id</span>)target;</span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">weak</span>, <span class="keyword">nonatomic</span>) <span class="type">id</span> target;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// XXXProxy.m</span></span><br><span class="line"><span class="meta">#import <span class="string">&quot;XXXProxy.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">XXXProxy</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyWithTarget:(<span class="type">id</span>)target</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// NSProxy 对象不需要调用 init，因为它本来就没有 init 方法</span></span><br><span class="line">    XXXProxy *proxy = [XXXProxy alloc];</span><br><span class="line">    proxy.target = target;</span><br><span class="line">    <span class="keyword">return</span> proxy;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// NSProxy 没有 forwardingTargetForSelector: 方法</span></span><br><span class="line">- (<span class="built_in">NSMethodSignature</span> *)methodSignatureForSelector:(SEL)sel</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> [<span class="keyword">self</span>.target methodSignatureForSelector:sel];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="type">void</span>)forwardInvocation:(<span class="built_in">NSInvocation</span> *)invocation</span><br><span class="line">&#123;</span><br><span class="line">    [invocation invokeWithTarget:<span class="keyword">self</span>.target];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>接下来看一个关于NSProxy 比较有意思的示例，以下代码如何打印？</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ViewController *vc = [[ViewController alloc] init];</span><br><span class="line"><span class="comment">// XXXProxy 是继承自 NSProxy </span></span><br><span class="line">XXXProxy *proxy = [XXXProxy  proxyWithTarget:vc];</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;%d&quot;</span>,[proxy isKindOfClass:[ViewController <span class="keyword">class</span>]]);</span><br></pre></td></tr></table></figure>
+<p>按照以往理解，以上代码应该打印 0，但实际结果是打印 1，因为 <code>NSProxy</code> 不是任何类的子类，也是一个基类，内部调用的所有方法，都将直接进行转发。所以上面<br><code>[proxy isKindOfClass:[ViewController class]]</code><br>等价于<br><code>[vc isKindOfClass:[ViewController class]]</code></p>
+<p>而如果 <code>XXXProxy</code> 继承自 <code>NSObject</code>，那么结果就是打印 0 了。</p>
+<h4 id="c、使用-GCD-替代"><a href="#c、使用-GCD-替代" class="headerlink" title="c、使用 GCD 替代"></a>c、使用 GCD 替代</h4><p>另外需要注意的是，由于 <code>NSTimer</code> 是基于 Runloop 的，所以如果 Runloop 循环期间任务很重的话，很容易出现 <code>NSTimer</code> 计时不准问题，解决办法就是使用 GCD 实现定时器，GCD 是直接跟系统内核挂钩的，不会受 Runloop 影响：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 队列</span></span><br><span class="line"><span class="built_in">dispatch_queue_t</span> queue = dispatch_get_main_queue();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 创建定时器</span></span><br><span class="line">dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, <span class="number">0</span>, <span class="number">0</span>, queue);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 设置时间</span></span><br><span class="line">uint64_t start = <span class="number">2.0</span>; <span class="comment">// 2秒后开始执行</span></span><br><span class="line">uint64_t interval = <span class="number">1.0</span>; <span class="comment">// 每隔1秒执行</span></span><br><span class="line">dispatch_source_set_timer(timer,</span><br><span class="line">                          dispatch_time(DISPATCH_TIME_NOW, start * <span class="built_in">NSEC_PER_SEC</span>),</span><br><span class="line">                          interval * <span class="built_in">NSEC_PER_SEC</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 设置回调</span></span><br><span class="line">dispatch_source_set_event_handler(timer, ^&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;1111&quot;</span>);</span><br><span class="line">&#125;);</span><br><span class="line"><span class="comment">// dispatch_source_set_event_handler_f(timer, myTimerFireMethod);</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 启动定时器</span></span><br><span class="line">dispatch_resume(timer);</span><br><span class="line"></span><br><span class="line"><span class="keyword">self</span>.timer = timer;</span><br></pre></td></tr></table></figure></section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#block" >
+    <span class="tag-code">block</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/25223/">
+        <span class="nav-arrow">← </span>
+        
+          OC 对象一探究竟之三：alloc 与 init
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/1794/">
+        
+          Runtime 之 method
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/42759/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一般我们都是通过如下方式创建一个对象： 1MyObject *objc &#x3D; [[MyObject alloc] init]; 那么，alloc 和 init 方法都分别做了什么事呢？ 1、allocalloc 方法实现如下： 123+ (id)alloc &#123;    return _objc_rootAlloc(self);&#125;  可以看到，内部就是调用了 _objc_rootAl">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OC 对象一探究竟之三：alloc 与 init">
+<meta property="og:url" content="https://www.lixkit.com/posts/25223/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一般我们都是通过如下方式创建一个对象： 1MyObject *objc &#x3D; [[MyObject alloc] init]; 那么，alloc 和 init 方法都分别做了什么事呢？ 1、allocalloc 方法实现如下： 123+ (id)alloc &#123;    return _objc_rootAlloc(self);&#125;  可以看到，内部就是调用了 _objc_rootAl">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_25.png">
+<meta property="article:published_time" content="2020-03-29T17:24:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.902Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="对象">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_25.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      OC 对象一探究竟之三：alloc 与 init | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>OC 对象一探究竟之三：alloc 与 init</h2>
+  <p class="post-date">2020-03-29</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><p>一般我们都是通过如下方式创建一个对象：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MyObject *objc = [[MyObject alloc] init];</span><br></pre></td></tr></table></figure>
+<p>那么，<code>alloc</code> 和 <code>init</code> 方法都分别做了什么事呢？</p>
+<h2 id="1、alloc"><a href="#1、alloc" class="headerlink" title="1、alloc"></a>1、alloc</h2><p>alloc 方法实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="type">id</span>)alloc &#123;</span><br><span class="line">    <span class="keyword">return</span> _objc_rootAlloc(<span class="keyword">self</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，内部就是调用了 <code>_objc_rootAlloc</code> 函数：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">id</span></span><br><span class="line">_objc_rootAlloc(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> callAlloc(cls, <span class="literal">false</span><span class="comment">/*checkNil*/</span>, <span class="literal">true</span><span class="comment">/*allocWithZone*/</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>callAlloc 函数实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> ALWAYS_INLINE <span class="type">id</span></span><br><span class="line">callAlloc(Class cls, <span class="type">bool</span> checkNil, <span class="type">bool</span> allocWithZone=<span class="literal">false</span>)</span><br><span class="line">&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> __OBJC2__</span></span><br><span class="line">    <span class="keyword">if</span> (slowpath(checkNil &amp;&amp; !cls)) <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line">    <span class="keyword">if</span> (fastpath(!cls-&gt;ISA()-&gt;hasCustomAWZ())) &#123;</span><br><span class="line">        <span class="comment">// 如果类没有实现自定义的 +allocWithZone 方法</span></span><br><span class="line">        <span class="keyword">return</span> _objc_rootAllocWithZone(cls, <span class="literal">nil</span>);</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// No shortcuts available.</span></span><br><span class="line">    <span class="keyword">if</span> (allocWithZone) &#123;</span><br><span class="line">        <span class="keyword">return</span> ((<span class="type">id</span>(*)(<span class="type">id</span>, SEL, <span class="keyword">struct</span> _NSZone *))objc_msgSend)(cls, <span class="keyword">@selector</span>(allocWithZone:), <span class="literal">nil</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> ((<span class="type">id</span>(*)(<span class="type">id</span>, SEL))objc_msgSend)(cls, <span class="keyword">@selector</span>(alloc));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以上逻辑是先判断是否实现了自定义的 <code>+allocWithZone</code> 方法<br>如果实现了，通过 <code>objc_msgSend</code> 方式直接调用自定义的  <code>+allocWithZone</code> 方法<br>如果没有实现，则调用 <code>_objc_rootAllocWithZone</code> 函数</p>
+<p>一般我们不会自定义 <code>+allocWithZone</code> 方法，所以接下来看下 <code>_objc_rootAllocWithZone</code> 函数的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">id</span></span><br><span class="line">_objc_rootAllocWithZone(Class cls, malloc_zone_t *zone __unused)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// allocWithZone under __OBJC2__ ignores the zone parameter</span></span><br><span class="line">    <span class="keyword">return</span> _class_createInstanceFromZone(cls, <span class="number">0</span>, <span class="literal">nil</span>,</span><br><span class="line">                                         OBJECT_CONSTRUCT_CALL_BADALLOC);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>_objc_rootAllocWithZone()</code> 内部进入到了 alloc 源码的核心操作 <code>_class_createInstanceFromZone()</code> 函数，其实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> ALWAYS_INLINE <span class="type">id</span></span><br><span class="line">_class_createInstanceFromZone(Class cls, size_t extraBytes, <span class="type">void</span> *zone,</span><br><span class="line">                              <span class="type">int</span> construct_flags = OBJECT_CONSTRUCT_NONE,</span><br><span class="line">                              <span class="type">bool</span> cxxConstruct = <span class="literal">true</span>,</span><br><span class="line">                              size_t *outAllocatedSize = <span class="literal">nil</span>)</span><br><span class="line">&#123;</span><br><span class="line">    ASSERT(cls-&gt;isRealized());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 类或者父类是否有 C++ 构造方法或析够方法</span></span><br><span class="line">    <span class="type">bool</span> hasCxxCtor = cxxConstruct &amp;&amp; cls-&gt;hasCxxCtor();</span><br><span class="line">    <span class="type">bool</span> hasCxxDtor = cls-&gt;hasCxxDtor();</span><br><span class="line">    <span class="comment">//是否能alloc nonpointer isa</span></span><br><span class="line">    <span class="type">bool</span> fast = cls-&gt;canAllocNonpointer();</span><br><span class="line">    size_t size;</span><br><span class="line">    <span class="comment">// 计算对象所需大小，这里 extraBytes == 0，由前一函数传递</span></span><br><span class="line">    size = cls-&gt;instanceSize(extraBytes);</span><br><span class="line">    <span class="comment">// 将计算好的 size 通过指针地址传递出去，不影响我们理解主流程，可以忽略</span></span><br><span class="line">    <span class="keyword">if</span> (outAllocatedSize) *outAllocatedSize = size;</span><br><span class="line"></span><br><span class="line">    <span class="type">id</span> obj;</span><br><span class="line">    <span class="comment">// 判断是否有 zone,在之前的版本是有 zone 的</span></span><br><span class="line">    <span class="keyword">if</span> (zone) &#123;</span><br><span class="line">        obj = (<span class="type">id</span>)malloc_zone_calloc((malloc_zone_t *)zone, <span class="number">1</span>, size);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// alloc 开辟内存的地方</span></span><br><span class="line">        obj = (<span class="type">id</span>)calloc(<span class="number">1</span>, size);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 这里是内存开辟错误执行的流程，字面意思可以看到，系统调用了 alloc 失败句柄</span></span><br><span class="line">    <span class="keyword">if</span> (slowpath(!obj)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (construct_flags &amp; OBJECT_CONSTRUCT_CALL_BADALLOC) &#123;</span><br><span class="line">            <span class="keyword">return</span> _objc_callBadAllocHandler(cls);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!zone &amp;&amp; fast) &#123;</span><br><span class="line">        <span class="comment">// 初始化 isa，并将类与 isa 关联</span></span><br><span class="line">        obj-&gt;initInstanceIsa(cls, hasCxxDtor);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// Use raw pointer isa on the assumption that they might be</span></span><br><span class="line">        <span class="comment">// doing something weird with the zone or RR.</span></span><br><span class="line">        <span class="comment">// 老版本的内存分配</span></span><br><span class="line">        obj-&gt;initIsa(cls);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 若没有 C++ 构造函数，则将关联好类的 isa 返回</span></span><br><span class="line">    <span class="keyword">if</span> (fastpath(!hasCxxCtor)) &#123;</span><br><span class="line">        <span class="keyword">return</span> obj;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 若有 c++ 构造函数，则走 c++ 构造流程</span></span><br><span class="line">    construct_flags |= OBJECT_CONSTRUCT_FREE_ONFAILURE;</span><br><span class="line">    <span class="keyword">return</span> object_cxxConstructFromClass(obj, cls, construct_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里主要是下面三个主要逻辑：</p>
+<ul>
+<li>cls-&gt;instanceSize()：计算需要开辟的内存空间大小，也就是创建对象所需的大小，这里会对对象做 16 字节对齐。</li>
+<li>calloc()：通过 instanceSize 计算的内存大小，向内存中申请对应大小的内存，并赋值给 obj，因此 obj 是指向内存地址的指针。</li>
+<li>obj-&gt;initInstanceIsa()：初始化 isa，并将类与 isa 关联。<img src="/images/lix_blog_25.png" style="width:50%;"></li>
+</ul>
+<h2 id="2、init"><a href="#2、init" class="headerlink" title="2、init"></a>2、init</h2><p>init 方法源码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">id</span>)init &#123;</span><br><span class="line">    <span class="keyword">return</span> _objc_rootInit(<span class="keyword">self</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">id</span></span><br><span class="line">_objc_rootInit(<span class="type">id</span> obj)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// In practice, it will be hard to rely on this function.</span></span><br><span class="line">    <span class="comment">// Many classes do not properly chain -init calls.</span></span><br><span class="line">    <span class="keyword">return</span> obj;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 init 的实现仅仅是返回传入的 self 本身，可以理解为就是一个空壳，开发者可以根据需要增加自定义的 init 实现。也就是说，调用了 alloc 方法之后，无需调用 init 方法，就能直接调用实例方法了，因为这个时候对象已经创建好了。但是实际开发中不要这么做，因为对应的类中很有可能有自定义的 init 方法。 </p>
+<h2 id="3、new"><a href="#3、new" class="headerlink" title="3、new"></a>3、new</h2><p>new 方法实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="type">id</span>)new &#123;</span><br><span class="line">    <span class="keyword">return</span> [callAlloc(<span class="keyword">self</span>, <span class="literal">false</span><span class="comment">/*checkNil*/</span>) init];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，new 方法实际上就是等价于 [[XXXObject alloc] init];</p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/16257/">
+        <span class="nav-arrow">← </span>
+        
+          OC 对象一探究竟之二：内存中的对象
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/42759/">
+        
+          Block 实现原理
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/25223/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

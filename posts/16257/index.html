@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="1、NSObject 对象的内存占用首先，我们知道，在 32 位系统中，指针占用 4 个字节；在 64 位系统中，指针占用 8 个字节。这里，我们只考虑 64 位情况。 对于 NSObject 对象， 其实现如下： 12345struct NSObject_IMPL &#123;    Class isa;&#125;;typedef struct objc_class *Class; 一个指针占">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OC 对象一探究竟之二：内存中的对象">
+<meta property="og:url" content="https://www.lixkit.com/posts/16257/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="1、NSObject 对象的内存占用首先，我们知道，在 32 位系统中，指针占用 4 个字节；在 64 位系统中，指针占用 8 个字节。这里，我们只考虑 64 位情况。 对于 NSObject 对象， 其实现如下： 12345struct NSObject_IMPL &#123;    Class isa;&#125;;typedef struct objc_class *Class; 一个指针占">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_14.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_15.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_16.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_17.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_18.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_19.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_20.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_21.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_22.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_23.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_24.png">
+<meta property="article:published_time" content="2020-03-28T16:50:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.902Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="对象">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_14.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      OC 对象一探究竟之二：内存中的对象 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>OC 对象一探究竟之二：内存中的对象</h2>
+  <p class="post-date">2020-03-28</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="1、NSObject-对象的内存占用"><a href="#1、NSObject-对象的内存占用" class="headerlink" title="1、NSObject 对象的内存占用"></a>1、NSObject 对象的内存占用</h2><p>首先，我们知道，在 32 位系统中，指针占用 4 个字节；在 64 位系统中，指针占用 8 个字节。这里，我们只考虑 64 位情况。</p>
+<p>对于 NSObject 对象， 其实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="built_in">NSObject_IMPL</span> &#123;</span><br><span class="line">    Class isa;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> objc_class *Class;</span><br></pre></td></tr></table></figure>
+<p>一个指针占用 8 个字节，而 Class 又是指向 objc_class 结构体的指针，那么是否意味着 NSObject 对象占用 8 个字节内存空间呢？我们可以验证一下。</p>
+<p>可以使用如下方法获取创建一个实例对象，所分配的内存大小：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#import <span class="string">&lt;malloc/malloc.h&gt;</span></span></span><br><span class="line">malloc_size((__bridge <span class="keyword">const</span> <span class="type">void</span> *)obj);</span><br></pre></td></tr></table></figure>
+<p>如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">NSObject</span> *obj = [[<span class="built_in">NSObject</span> alloc] init];</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;%zd&quot;</span>, malloc_size((__bridge <span class="keyword">const</span> <span class="type">void</span> *)obj));</span><br></pre></td></tr></table></figure>
+<p>打印结果：<br>16</p>
+<p><strong>那么问题来了，为什么不是 8 个字节而是 16 个字节？</strong></p>
+<p>我们可以去 <a target="_blank" rel="noopener" href="https://opensource.apple.com/tarballs/objc4/">https://opensource.apple.com/tarballs/objc4/</a> 下载 Apple 提供 OC 的实现源码，直接 Xcode 打开，看下创建实例对象时内存是如何分配的，以下是从源码中拿出的关键部分代码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// NSObject.mm</span></span><br><span class="line">+ (<span class="type">id</span>)allocWithZone:(<span class="keyword">struct</span> _NSZone *)zone &#123;</span><br><span class="line">    <span class="keyword">return</span> _objc_rootAllocWithZone(<span class="keyword">self</span>, (malloc_zone_t *)zone);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">id</span> _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">id</span> obj;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> __OBJC2__</span></span><br><span class="line">    <span class="comment">// allocWithZone under __OBJC2__ ignores the zone parameter</span></span><br><span class="line">    (<span class="type">void</span>)zone;</span><br><span class="line">    obj = class_createInstance(cls, <span class="number">0</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="keyword">if</span> (!zone) &#123;</span><br><span class="line">        obj = class_createInstance(cls, <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        obj = class_createInstanceFromZone(cls, <span class="number">0</span>, zone);</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (slowpath(!obj)) obj = callBadAllocHandler(cls);</span><br><span class="line">    <span class="keyword">return</span> obj;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// objc-runtime-new.m</span></span><br><span class="line"><span class="type">id</span></span><br><span class="line">class_createInstance(Class cls, size_t extraBytes)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> _class_createInstanceFromZone(cls, extraBytes, <span class="literal">nil</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">id</span></span><br><span class="line">_class_createInstanceFromZone(Class cls, size_t extraBytes, <span class="type">void</span> *zone,</span><br><span class="line">                              <span class="type">bool</span> cxxConstruct = <span class="literal">true</span>,</span><br><span class="line">                              size_t *outAllocatedSize = <span class="literal">nil</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (!cls) <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line"></span><br><span class="line">    assert(cls-&gt;isRealized());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Read class&#x27;s info bits all at once for performance</span></span><br><span class="line">    <span class="type">bool</span> hasCxxCtor = cls-&gt;hasCxxCtor();</span><br><span class="line">    <span class="type">bool</span> hasCxxDtor = cls-&gt;hasCxxDtor();</span><br><span class="line">    <span class="type">bool</span> fast = cls-&gt;canAllocNonpointer();</span><br><span class="line"></span><br><span class="line">    size_t size = cls-&gt;instanceSize(extraBytes);</span><br><span class="line">    <span class="keyword">if</span> (outAllocatedSize) *outAllocatedSize = size;</span><br><span class="line"></span><br><span class="line">    <span class="type">id</span> obj;</span><br><span class="line">    <span class="keyword">if</span> (!zone  &amp;&amp;  fast) &#123;</span><br><span class="line">        obj = (<span class="type">id</span>)calloc(<span class="number">1</span>, size);</span><br><span class="line">        <span class="keyword">if</span> (!obj) <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line">        obj-&gt;initInstanceIsa(cls, hasCxxDtor);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (zone) &#123;</span><br><span class="line">            obj = (<span class="type">id</span>)malloc_zone_calloc ((malloc_zone_t *)zone, <span class="number">1</span>, size);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            obj = (<span class="type">id</span>)calloc(<span class="number">1</span>, size);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (!obj) <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Use raw pointer isa on the assumption that they might be</span></span><br><span class="line">        <span class="comment">// doing something weird with the zone or RR.</span></span><br><span class="line">        obj-&gt;initIsa(cls);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cxxConstruct &amp;&amp; hasCxxCtor) &#123;</span><br><span class="line">        obj = _objc_constructOrFree(obj, cls);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> obj;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从 _class_createInstanceFromZone 方法实现可以看出，创建实例对象所分配的内存由以下代码决定：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">size_t size = cls-&gt;instanceSize(extraBytes);</span><br></pre></td></tr></table></figure>
+<p>instanceSize 方法实现源码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">size_t instanceSize(size_t extraBytes) &#123;</span><br><span class="line">    size_t size = alignedInstanceSize() + extraBytes;</span><br><span class="line">    <span class="comment">// CF requires all objects be at least 16 bytes.</span></span><br><span class="line">    <span class="keyword">if</span> (size &lt; <span class="number">16</span>) size = <span class="number">16</span>;</span><br><span class="line">    <span class="keyword">return</span> size;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_14.png"><br>从 Apple 的代码可以看出，<font color=#ff0000>创建对象时候，如果对象占用内存小于 16 字节，就会分配 16 字节内存</font>（除了这个原因外，内存对齐也会对最终分配的内存有影响，内存对齐后续会介绍）。</p>
+<p>所以，NSObject 对象虽然只占用 8 个字节内存，实际上会分配 16 字节。</p>
+<p>注意，在 runtime 中，还有下面这个获取对象所占用内存的方法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#import <span class="string">&lt;objc/runtime.h&gt;</span></span></span><br><span class="line">class_getInstanceSize([<span class="built_in">NSObject</span> <span class="keyword">class</span>]);</span><br></pre></td></tr></table></figure>
+<p>如果用该方法获取 NSObject 对象所占用内存大小时，该方法将会返回 8 而不是 16，以下是从 Apple 提供的源码相关代码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// objc-class.m</span></span><br><span class="line">size_t class_getInstanceSize(Class cls)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (!cls) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> cls-&gt;alignedInstanceSize();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// objc-runtime-new.m</span></span><br><span class="line"><span class="comment">// Class&#x27;s ivar size rounded up to a pointer-size boundary.</span></span><br><span class="line">uint32_t alignedInstanceSize() &#123;</span><br><span class="line">    <span class="keyword">return</span> word_align(unalignedInstanceSize());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_15.png"><br>这块 Apple 的注释也已经写的很清楚了，<font color=#ff0000>class_getInstanceSize 获取到的大小, 是内存对齐之后的大小，这实际上是获取对象成员变量所占用的内存大小。</font>所以可以理解为是创建对象至少所需要的内存大小。由于 NSObject 对象中只有一个 isa 成员变量，所以使用该方法获取到的大小为 8，由于小于最低 16 字节，所以会直接分配 16 字节内存，也就意味着有 8 字节目前是空着还没有利用的。</p>
+<p>也可以借助 LLDB 如下命令获取内存分布情况：<br><code>x/数量格式字节数  内存地址</code></p>
+<p><strong>【格式】</strong><br>x是16进制，f是浮点，d是10进制<br><strong>【字节大小】</strong><br>b：byte 1字节，h：half word 2字节<br>w：word 4字节，g：giant word 8字节</p>
+<p>例如：<br><code>x/2xg 内存地址</code></p>
+<p>2xg 代表打印 2 段，每段都是 16 进制格式显示，每段都是 8 个字节。</p>
+<p>通过该命令再看下 NSObject 对象的内存分布：<br><img src="/images/lix_blog_16.png"><br>可以看出，第 2 段 8 个字节是还没有被利用的。</p>
+<h2 id="2、自定义对象的内存占用"><a href="#2、自定义对象的内存占用" class="headerlink" title="2、自定义对象的内存占用"></a>2、自定义对象的内存占用</h2><p>各数据类型占用内存大小：<br><img src="/images/lix_blog_17.png"><br>根据上图可以知道，一个 int 型成员变量占用 4 个字节内存，假设有以下自定义的 Student 类，有两个 int 类型成员变量：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Student</span> : <span class="title">NSObject</span> </span>&#123;</span><br><span class="line">    <span class="keyword">@public</span></span><br><span class="line">    <span class="type">int</span> _no;</span><br><span class="line">    <span class="type">int</span> _age;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">Student</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>那么这个 Student 对象占用多大内存？<br>同样，可以使用如下命令将其转成 C&#x2F;C++ 代码看其实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xcrun  -sdk  iphoneos  clang  -arch  arm64  -rewrite-objc  OC源文件  -o  输出的CPP文件</span><br></pre></td></tr></table></figure>
+<p>在生成的 C&#x2F;C++ 代码可以找到 Student 的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> Student_IMPL &#123;</span><br><span class="line">    <span class="keyword">struct</span> <span class="built_in">NSObject_IMPL</span> <span class="built_in">NSObject_IVARS</span>;</span><br><span class="line">    <span class="type">int</span> _no;</span><br><span class="line">    <span class="type">int</span> _age;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_18.png"><br>前面已经知道 NSObject_IMPL：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="built_in">NSObject_IMPL</span> &#123;</span><br><span class="line">    Class isa;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>也就是说，Student_IMPL 实际上可以认为是：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> Student_IMPL &#123;</span><br><span class="line">    Class isa; <span class="comment">// 8 字节</span></span><br><span class="line">    <span class="type">int</span> _no; <span class="comment">// 4 字节</span></span><br><span class="line">    <span class="type">int</span> _age; <span class="comment">// 4 字节</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>所以，可以确定 Student 的实例对象会占用 16 字节内存，可以验证确认一下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Student *stu = [[Student alloc] init];</span><br><span class="line">stu-&gt;_no = <span class="number">101</span>;</span><br><span class="line">stu-&gt;_age = <span class="number">18</span>;</span><br><span class="line"></span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;stu size：%zd&quot;</span>, malloc_size((__bridge <span class="keyword">const</span> <span class="type">void</span> *)stu));</span><br></pre></td></tr></table></figure>
+<p>打印结果：<br><code>stu size：16</code></p>
+<p>而且，在内存中，三个成员 isa、_no、_age 的内存地址也是连续的。stu 的内存地址和第一个成员 isa 的地址是一样的。</p>
+<h2 id="3、内存对齐"><a href="#3、内存对齐" class="headerlink" title="3、内存对齐"></a>3、内存对齐</h2><p>先看一个内存对齐的例子，假设有 StudentOne、StudentTwo 两个结构体，它们的成员完全一样的，只是把 a、b 两个成员换个顺序，然后使用 sizeof 获取结构体所占用内存大小：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> StudentOne &#123;</span><br><span class="line">    <span class="type">char</span> a;         <span class="comment">// 1 字节</span></span><br><span class="line">    <span class="type">double</span> b;       <span class="comment">// 8 字节</span></span><br><span class="line">    <span class="type">int</span> c;          <span class="comment">// 4 字节</span></span><br><span class="line">    <span class="type">short</span> d;        <span class="comment">// 2 字节</span></span><br><span class="line">&#125; StuStruct1;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> StudentTwo &#123;</span><br><span class="line">    <span class="type">double</span> b;       <span class="comment">// 8 字节</span></span><br><span class="line">    <span class="type">char</span> a;         <span class="comment">// 1 字节</span></span><br><span class="line">    <span class="type">short</span> d;        <span class="comment">// 2 字节</span></span><br><span class="line">    <span class="type">int</span> c;          <span class="comment">// 4 字节</span></span><br><span class="line">&#125; StuStruct2;</span><br><span class="line"></span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;StuStruct1 size：%lu，StuStruct2 size：%lu&quot;</span>, <span class="keyword">sizeof</span>(StuStruct1), <span class="keyword">sizeof</span>(StuStruct2));</span><br></pre></td></tr></table></figure>
+<p>打印结果：<br><code>StuStruct1 size：24，StuStruct2 size：16</code></p>
+<p>结果就是成员一样的两个结构体所占用内存的大小却不一样，这就是内存对齐的结果。</p>
+<p><strong>关于 sizeof</strong><br>sizeof 是操作符，不是函数，它的作用对象是数据类型，主要作用于编译时。因此，它作用于变量时，也是对其类型进行操作。得到的结果是该数据类型占用空间大小，即 size_t 类型。<br>例如，64 位架构下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">sizeof</span>(<span class="type">int</span>) = <span class="number">4</span></span><br><span class="line"><span class="keyword">sizeof</span>([<span class="built_in">NSObject</span> <span class="keyword">class</span>])) = <span class="number">8</span></span><br><span class="line"><span class="keyword">sizeof</span>([[MyNSObject alloc]init]) = <span class="number">8</span></span><br></pre></td></tr></table></figure>
+<p>sizeof 只会计算类型所占用的内存大小，不会关心具体的对象的内存布局。所以自定义一个 NSObject 对象，无论该对象生命多少个成员变量，最后得到的内存大小都是 8 个字节。</p>
+<p><strong>对齐系数：</strong><br>每个特定的平台上的编译器都有自己的默认“对齐系数”（也叫对齐模数）。我们可以通过预编译命令 #pragma pack(n)，n&#x3D;1、2、4、8、16 来改变这一系数，其中的 n 就是要指定的“对齐系数”。 Xcode 的默认对齐系数是 8。</p>
+<p>内存对齐的原则</p>
+<ul>
+<li>数据成员对齐规则：（Struct 或者 Union 的数据成员）第一个数据成员放在偏移为 0 的位置。以后每个数据成员的位置为 min(对齐系数，自身长度) 的整数倍，下个位置不为本数据的整数倍位置的自动补齐。</li>
+<li>数据成员为结构体：该数据成员内的最大长度的整数倍的位置开始存储。</li>
+<li>收尾工作：结构体的总大小，也就是 sizeof 的结果，对齐原则是 min(对齐系数，最大成员长度) 的整数倍，不足的要补⻬。</li>
+</ul>
+<p>再回头看下 StudentOne 和 StudentTwo 两个结构体：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> StudentOne &#123;</span><br><span class="line">    <span class="type">char</span> a;              <span class="comment">// 1 byte，位置[0]</span></span><br><span class="line">    <span class="type">char</span> _pad0[<span class="number">7</span>];      <span class="comment">//补齐7字节成为8(随后跟着的 double 大小)的倍数，原则一</span></span><br><span class="line">    <span class="type">double</span> b;               <span class="comment">// 8 bytes，位置[8-15]</span></span><br><span class="line">    <span class="type">int</span> c;                       <span class="comment">// 4 bytes，位置[16-19]</span></span><br><span class="line">    <span class="type">short</span> d;                  <span class="comment">// 2 byte，位置[20-21]，到这里，结构体占用内存大小为 22 字节</span></span><br><span class="line">    <span class="type">char</span> _pad1[<span class="number">2</span>];     <span class="comment">// 补齐 2 字节让结构体的大小成为最大成员大小 double（8字节）的倍数，原则三</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> StudentTwo &#123;</span><br><span class="line">    <span class="type">double</span> b;       <span class="comment">// 8 字节，位置[0-7]</span></span><br><span class="line">    <span class="type">char</span> a;         <span class="comment">// 1 字节，位置[8]</span></span><br><span class="line">    <span class="type">char</span> _pad0[<span class="number">1</span>];  <span class="comment">// 补齐 1 字节成为 2(随后跟着的 short 大小)的倍数，原则一</span></span><br><span class="line">    <span class="type">short</span> d;        <span class="comment">// 2 字节，位置[10-11]</span></span><br><span class="line">    <span class="type">int</span> c;          <span class="comment">// 4 字节，位置[12-15]，到这里，结构体占用内存大小为 16 字节，满足原则三</span></span><br><span class="line">&#125; StuStruct2;</span><br></pre></td></tr></table></figure>
+<p>所以 StudentOne 占用 24 字节内存，StudentTwo 占用 16 字节内存。</p>
+<p>如果在代码执行前加一句 #pragma pack(1) 时就代表不进行内存对齐，上述结构体打印大小的结果就都为 16。</p>
+<p><strong>需要内存对齐原因</strong><br>经过内存对齐之后可以发现，size反而变大了。那为什么还要进行内存对齐呢？因为 CPU 存取内存并不是以 byte 为单位的，而是以块为单位，每块可以为 2&#x2F;4&#x2F;8&#x2F;16 字节，每次内存存取都会产生一个固定的开销，减少内存存取次数将提升程序的性能。所以 CPU 一般会以 2&#x2F;4&#x2F;8&#x2F;16&#x2F;32 字节为单位来进行存取操作。我们将上述这些存取单位也就是块大小称为（memory access granularity）内存存取粒度。如果没有内存对齐，会大大增加CPU 在存取过程中的消耗。</p>
+<p>为了说明内存对齐背后的原理，我们通过一个例子来说明从未地址与对齐地址读取数据的差异。这个例子很简单：在一个存取粒度为 4 字节的内存中，先从地址 0 读取 4 个字节到寄存器，然后从地址 1 读取 4 个字节到寄存器。</p>
+<p>当从地址 0 开始读取数据时，是读取对齐地址的数据，直接通过一次读取就能完成。当从地址 1 读取数据时读取的是非对齐地址的数据。需要读取两次数据才能完成。<br><img src="/images/lix_blog_19.png"><br>而且在读取完两次数据后，还要将 0-3 的数据向上偏移 1 字节，将 4-7 的数据向下偏移 3 字节。最后再将两块数据合并放入寄存器。<br><img src="/images/lix_blog_20.png"><br>对一个内存未对齐的数据进行了这么多额外的操作，这对 CPU 的开销很大，大大降低了CPU 性能。</p>
+<h2 id="4、calloc-分析"><a href="#4、calloc-分析" class="headerlink" title="4、calloc 分析"></a>4、calloc 分析</h2><p>先看一个例子：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#import <span class="string">&lt;Foundation/Foundation.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;malloc/malloc.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;objc/runtime.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Student</span> : <span class="title">NSObject</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> _age;</span><br><span class="line">    <span class="type">int</span> _height;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">Student</span></span></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> main(<span class="type">int</span> argc, <span class="keyword">const</span> <span class="type">char</span> * argv[]) &#123;</span><br><span class="line">    <span class="keyword">@autoreleasepool</span> &#123;</span><br><span class="line">        Student *stu = [[Student alloc] init];</span><br><span class="line">        </span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@&quot;\nclass_getInstanceSize=%zd\nmalloc_size=%zd&quot;</span>,</span><br><span class="line">        class_getInstanceSize([Student <span class="keyword">class</span>]), <span class="comment">// 24</span></span><br><span class="line">        malloc_size((__bridge <span class="keyword">const</span> <span class="type">void</span> *)(stu))); <span class="comment">// 32</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>打印结果：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">class_getInstanceSize=<span class="number">16</span></span><br><span class="line">malloc_size=<span class="number">16</span></span><br></pre></td></tr></table></figure>
+
+<p>从以上结果可以看出，Student 有 2 个自定义的成员变量，内存对齐后所需大小为 16 字节，实际分配了 16 字节，满足预期结果。</p>
+<p>那么再给 Student 增加一个成员变量，打印结果将会是多少呢：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Student</span> : <span class="title">NSObject</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> _age;</span><br><span class="line">    <span class="type">int</span> _height;</span><br><span class="line">    <span class="type">int</span> _no;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>先从内存对齐的角度计算下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> Student_IMPL &#123;</span><br><span class="line">    Class isa; <span class="comment">// 8 字节，位置[0-7]</span></span><br><span class="line">    <span class="type">int</span> _age; <span class="comment">// 4 字节，位置[8-11]</span></span><br><span class="line">    <span class="type">int</span> _height; <span class="comment">// 4 字节，位置[12-15]</span></span><br><span class="line">    <span class="type">int</span> _no; <span class="comment">// 4 字节，位置[16-19]，目前占用 20 字节，不满足最大成员（isa 8 字节）的倍数，应补齐4字节变成 24 字节</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>从结果可以猜测打印结果可能是下面这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">class_getInstanceSize=24</span><br><span class="line">malloc_size=24</span><br></pre></td></tr></table></figure>
+<p>运行代码看下结果是否符合预期，运行代码打印结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">class_getInstanceSize=24</span><br><span class="line">malloc_size=32</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_21.png"><br>结果是出乎意料的，class_getInstanceSize 结果符合预期，内存对齐后占用空间是 24 字节，但是从 malloc_size 结果可以看出系统实际上分配了 32 字节大小，问题出在哪里呢？</p>
+<p>下面是前面提到的创建实例对象时内存分配相关源码中的部分逻辑：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">id</span></span><br><span class="line">_class_createInstanceFromZone(Class cls, size_t extraBytes, <span class="type">void</span> *zone,</span><br><span class="line">                              <span class="type">bool</span> cxxConstruct = <span class="literal">true</span>,</span><br><span class="line">                              size_t *outAllocatedSize = <span class="literal">nil</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (!cls) <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    size_t size = cls-&gt;instanceSize(extraBytes);</span><br><span class="line">    <span class="keyword">if</span> (outAllocatedSize) *outAllocatedSize = size;</span><br><span class="line"></span><br><span class="line">    <span class="type">id</span> obj;</span><br><span class="line">    <span class="keyword">if</span> (!zone  &amp;&amp;  fast) &#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (zone) &#123;</span><br><span class="line">            ...</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 这行是重点</span></span><br><span class="line">            obj = (<span class="type">id</span>)calloc(<span class="number">1</span>, size);</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> obj;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">size_t instanceSize(size_t extraBytes) &#123;</span><br><span class="line">    size_t size = alignedInstanceSize() + extraBytes;</span><br><span class="line">    <span class="comment">// CF requires all objects be at least 16 bytes.</span></span><br><span class="line">    <span class="keyword">if</span> (size &lt; <span class="number">16</span>) size = <span class="number">16</span>;</span><br><span class="line">    <span class="keyword">return</span> size;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看出，创建实例对象的时候，我们传给 calloc 的是内存对齐后的大小 24，但是 calloc 中实际分配了 32，可以验证一下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> *p = calloc(<span class="number">1</span>, <span class="number">24</span>);</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;%lu&quot;</span>,malloc_size(p));</span><br></pre></td></tr></table></figure>
+<p>打印结果：<br><code>32</code><br><img src="/images/lix_blog_22.png"><br>接下来就要从源码角度分析 calloc 的实现了，下面为 calloc 的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> *</span><br><span class="line">calloc(size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">void</span> *retval;</span><br><span class="line">    retval = malloc_zone_calloc(default_zone, num_items, size);</span><br><span class="line">    <span class="keyword">if</span> (retval == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        errno = ENOMEM;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> retval;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到 calloc 里主要调用了 malloc_zone_calloc：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> *</span><br><span class="line">malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">    MALLOC_TRACE(TRACE_calloc | DBG_FUNC_START, (uintptr_t)zone, num_items, size, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="type">void</span> *ptr;</span><br><span class="line">    <span class="keyword">if</span> (malloc_check_start &amp;&amp; (malloc_check_counter++ &gt;= malloc_check_start)) &#123;</span><br><span class="line">        internal_check();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ptr = zone-&gt;calloc(zone, num_items, size);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (malloc_logger) &#123;</span><br><span class="line">        malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (uintptr_t)zone,</span><br><span class="line">                (uintptr_t)(num_items * size), <span class="number">0</span>, (uintptr_t)ptr, <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    MALLOC_TRACE(TRACE_calloc | DBG_FUNC_END, (uintptr_t)zone, num_items, size, (uintptr_t)ptr);</span><br><span class="line">    <span class="keyword">return</span> ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中关键代码是 ptr &#x3D; zone-&gt;calloc(zone, num_items, size); 到这里打断点调试看下：</p>
+<p>根据 LLDB 打印结果可以确定调用的是 default_zone_calloc：<br><img src="/images/lix_blog_23.png"><br>接下来再看下 default_zone_calloc 的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">void</span> *</span><br><span class="line">default_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">    zone = runtime_default_zone();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> zone-&gt;calloc(zone, num_items, size);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里再断点调试一下，可以确定调用的 naco_calloc。<br><img src="/images/lix_blog_24.png"><br>naco_calloc 实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">void</span> *</span><br><span class="line">nano_calloc(nanozone_t *nanozone, size_t num_items, size_t size)</span><br><span class="line">&#123;</span><br><span class="line">    size_t total_bytes;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (calloc_get_size(num_items, size, <span class="number">0</span>, &amp;total_bytes)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (total_bytes &lt;= NANO_MAX_SIZE) &#123; <span class="comment">// NANO_MAX_SIZE  256 </span></span><br><span class="line">        <span class="type">void</span> *p = _nano_malloc_check_clear(nanozone, total_bytes, <span class="number">1</span>);</span><br><span class="line">        <span class="keyword">if</span> (p) &#123;</span><br><span class="line">            <span class="keyword">return</span> p;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">/* FALLTHROUGH to helper zone */</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    malloc_zone_t *zone = (malloc_zone_t *)(nanozone-&gt;helper_zone);</span><br><span class="line">    <span class="keyword">return</span> zone-&gt;calloc(zone, <span class="number">1</span>, total_bytes);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ANO_MAX_SIZE 为 256，此时 total_bytes 肯定小于 256，继续执行走到<code>void *p = _nano_malloc_check_clear(nanozone, total_bytes, 1);</code></p>
+<p>再来看下 _nano_malloc_check_clear 的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">void</span> *</span><br><span class="line">_nano_malloc_check_clear(nanozone_t *nanozone, size_t size, boolean_t cleared_requested)</span><br><span class="line">&#123;</span><br><span class="line">    MALLOC_TRACE(TRACE_nano_malloc, (uintptr_t)nanozone, size, cleared_requested, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="type">void</span> *ptr;</span><br><span class="line">    size_t slot_key;</span><br><span class="line">    size_t slot_bytes = segregated_size_to_fit(nanozone, size, &amp;slot_key); <span class="comment">// Note slot_key is set here</span></span><br><span class="line">    mag_index_t mag_index = nano_mag_index(nanozone);</span><br><span class="line"></span><br><span class="line">    nano_meta_admin_t pMeta = &amp;(nanozone-&gt;meta_data[mag_index][slot_key]);</span><br><span class="line"></span><br><span class="line">    ptr = OSAtomicDequeue(&amp;(pMeta-&gt;slot_LIFO), offsetof(<span class="keyword">struct</span> chained_block_s, next));</span><br><span class="line">    <span class="keyword">if</span> (ptr) &#123;</span><br><span class="line">            <span class="comment">/**略**/</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ptr = segregated_next_block(nanozone, pMeta, slot_bytes, mag_index);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (cleared_requested &amp;&amp; ptr) &#123;</span><br><span class="line">        memset(ptr, <span class="number">0</span>, slot_bytes); <span class="comment">// <span class="doctag">TODO:</span> Needs a memory barrier after memset to ensure zeroes land first?</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> ptr;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>跟着断点继续往下走，执行到 <code>segregated_size_to_fit(nanozone, size, &amp;slot_key)</code>，segregated_size_to_fit 对应实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> NANO_MAX_SIZE           256 <span class="comment">/* Buckets sized &#123;16, 32, 48, ..., 256&#125; */</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> SHIFT_NANO_QUANTUM      4</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NANO_REGIME_QUANTA_SIZE (1 &lt;&lt; SHIFT_NANO_QUANTUM)   <span class="comment">// 16</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> MALLOC_INLINE size_t</span><br><span class="line">segregated_size_to_fit(nanozone_t *nanozone, size_t size, size_t *pKey)</span><br><span class="line">&#123;</span><br><span class="line">    size_t k, slot_bytes;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="number">0</span> == size) &#123;</span><br><span class="line">        size = NANO_REGIME_QUANTA_SIZE; <span class="comment">// Historical behavior</span></span><br><span class="line">    &#125;</span><br><span class="line">    k = (size + NANO_REGIME_QUANTA_SIZE - <span class="number">1</span>) &gt;&gt; SHIFT_NANO_QUANTUM; <span class="comment">// round up and shift for number of quanta</span></span><br><span class="line">    slot_bytes = k &lt;&lt; SHIFT_NANO_QUANTUM;                           <span class="comment">// multiply by power of two quanta size</span></span><br><span class="line">    *pKey = k - <span class="number">1</span>;                                                  <span class="comment">// Zero-based!</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> slot_bytes;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>注意上面关键部分：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">k = (size + NANO_REGIME_QUANTA_SIZE - <span class="number">1</span>) &gt;&gt; SHIFT_NANO_QUANTUM;</span><br><span class="line">slot_bytes = k &lt;&lt; SHIFT_NANO_QUANTUM;</span><br></pre></td></tr></table></figure>
+<p>也就是：<br><code>(size + 16 - 1) &gt;&gt; 4 &lt;&lt; 4</code></p>
+<p>我们可以知道，这实际上就是对 size 进行了 16 字节对齐。</p>
+<p>而我们前面的 size 为 24，经过 16 字节对齐后正好是 32。</p>
+<p>根据结果，可以总结出结论：<br><font color=#ff0000>在进行内存对齐时，对象的成员变量（结构体成员）是 8 字节对齐，对象本身是 16 字节对齐。</font></p>
+<p>例如前面例子中 Student 对象的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> Student_IMPL &#123;</span><br><span class="line">    Class isa; <span class="comment">// 8 字节，位置[0-7]</span></span><br><span class="line">    <span class="type">int</span> _age; <span class="comment">// 4 字节，位置[8-11]</span></span><br><span class="line">    <span class="type">int</span> _height; <span class="comment">// 4 字节，位置[12-15]</span></span><br><span class="line">    <span class="type">int</span> _no; <span class="comment">// 4 字节，位置[16-19]，目前占用 20 字节，不满足最大成员（isa 8 字节）的倍数，应补齐4字节变成 24 字节</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>Student_IMPL 结构体内存对齐前是 20 字节，内存对齐后是 24 字节，在创建 Student 实例对象的时候，虽然它只占用了 24 字节，但是 calloc 里在分配内存的时候会再次对实例对象进行 16 字节对齐，最终分配了 32 字节内存。</p>
+<p><strong>这里为什么要针对对象再进行 16 字节对齐呢？</strong><br>是因为 OC 的对象中，其对应结构体一定会存在一个 8 字节的 isa 成员。如果对象也以 8 字节对齐，这时候如果存在两个甚至多个无成员变量的对象(只有 1 个 isa)在内存当中连续存放的话，对象之间 isa 都是紧邻的，如果内存访问出现了一点错误或者偏移，就会访问到其他对象，就会出现一些野指针、内存访问错误等问题，发生混乱。所以为了使得对象之间的访问更加的安全，就需要给对象之前预留一部分的空间，根据 CUP 按照每块 2&#x2F;4&#x2F;8&#x2F;16 字节大小进行读取数据，所以预留 8 字节按照 16 字节进行对齐可以使对象访问更加安全。也提高了寻址访问效率，也就是空间换时间。</p>
+<p><strong>【备注】</strong><br><strong>class_getInstanceSize、malloc_size、sizeof 的区别：</strong></p>
+<ul>
+<li><p>class_getInstanceSize：<br>是一个函数（调用时需要开辟额外的内存空间），程序运行时才获取，计算的是创建对象至少需要的内存大小，是对象内部成员按照 8 字节进行对齐后的结果，位于 #import &lt;objc&#x2F;runtime.h&gt;</p>
+</li>
+<li><p>malloc_size：<br>堆空间实际分配给对象的内存大小，也就是对象 16 字节对齐后的大小，位于 #import &lt;malloc&#x2F;malloc.h&gt;</p>
+</li>
+<li><p>sizeof：<br>是一个运算符，获取的是类型的大小（int、size_t、结构体、指针变量等），这些数值在程序编译时就转成常数，程序运行时是直接获取的。</p>
+</li>
+</ul>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/60413/">
+        <span class="nav-arrow">← </span>
+        
+          OC 对象一探究竟之一：对象的底层实现
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/25223/">
+        
+          OC 对象一探究竟之三：alloc 与 init
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/16257/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

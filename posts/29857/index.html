@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、启动时长监控1、阶段划分一般而言，对于冷启动时长，一般是统计从用户点击图标到首屏展示出来这段时间的时长。这个过程可以粗粒度分为下面两个阶段进行统计：这里一般是使用 root viewController 的 viewDidAppear 时间作为首屏渲染完成时间，也就是 APP 首屏加载完成用户可以交互的时间。 Pre Main 阶段，进程创建到执行 main() 的时间：  加载动态库：加载系">
+<meta property="og:type" content="article">
+<meta property="og:title" content="APP 启动优化 2 - 优化方案">
+<meta property="og:url" content="https://www.lixkit.com/posts/29857/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、启动时长监控1、阶段划分一般而言，对于冷启动时长，一般是统计从用户点击图标到首屏展示出来这段时间的时长。这个过程可以粗粒度分为下面两个阶段进行统计：这里一般是使用 root viewController 的 viewDidAppear 时间作为首屏渲染完成时间，也就是 APP 首屏加载完成用户可以交互的时间。 Pre Main 阶段，进程创建到执行 main() 的时间：  加载动态库：加载系">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_122.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_123.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_124.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_125.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_126.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_127.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_128.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_129.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_130.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_131.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_132.png">
+<meta property="article:published_time" content="2021-04-10T16:29:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.899Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="优化">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_122.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      APP 启动优化 2 - 优化方案 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>APP 启动优化 2 - 优化方案</h2>
+  <p class="post-date">2021-04-10</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、启动时长监控"><a href="#一、启动时长监控" class="headerlink" title="一、启动时长监控"></a>一、启动时长监控</h2><h3 id="1、阶段划分"><a href="#1、阶段划分" class="headerlink" title="1、阶段划分"></a>1、阶段划分</h3><p>一般而言，对于冷启动时长，一般是统计从用户点击图标到首屏展示出来这段时间的时长。这个过程可以粗粒度分为下面两个阶段进行统计：<br><img src="/images/lix_blog_122.png"><br>这里一般是使用 root viewController 的 viewDidAppear 时间作为首屏渲染完成时间，也就是 APP 首屏加载完成用户可以交互的时间。</p>
+<p>Pre Main 阶段，进程创建到执行 main() 的时间：</p>
+<ul>
+<li>加载动态库：加载系统动态库及三方动态库</li>
+<li><code>Rebase</code> &amp; <code>Bind</code>：修复 Mach-O 内外指针偏移</li>
+<li>Objc setup：初始化 objc runtime、注册 sel、加载 category 等</li>
+<li>Initializers：调用 <code>+load</code> 方法，调用 static initializer 相关方法等</li>
+</ul>
+<p>After Main 阶段，执行 <code>main()</code> 到首屏渲染完成的时间：</p>
+<ul>
+<li>SDK 注册</li>
+<li>业务初始化</li>
+<li>首屏数据加载 &amp; UI 绘制</li>
+<li>…</li>
+</ul>
+<p>当然这只是较粗粒度的划分，基本大部分 APP 都是划分成类似阶段。部分 APP 的 After Main 阶段定义为“执行 <code>main()</code>”到 “<code>didFinishLuanching</code> 执行结束”，这不是非常好的划分方式，因为对于用户来说，用户真正等待的时间是点击图标到 APP 首页展示完成能够交互的这段时间，而“<code>didFinishLuanching</code> 执行结束”时首页未必渲染完成。</p>
+<p>对于 After Main 阶段，由于可能会有大量 SDK 注册、业务初始化等任务。为了能准确定位各任务耗时情况，一般需要对这些任务进行集中管理，监控任务执行耗时。</p>
+<p>部分 APP 为了能够更加细致地分析各阶段耗时情况，可能会把 APP 冷启动划分为更加细粒度的几个阶段，例如抖音将冷启动划分成了下面这些阶段：<br><img src="/images/lix_blog_123.png"></p>
+<h3 id="2、线上耗时监控"><a href="#2、线上耗时监控" class="headerlink" title="2、线上耗时监控"></a>2、线上耗时监控</h3><h4 id="1-节点时间上报"><a href="#1-节点时间上报" class="headerlink" title="(1) 节点时间上报"></a>(1) 节点时间上报</h4><p>只要启动阶段划分完成了，对于监控耗时情况就比较容易了，只需要获取各阶段节点发生的时间进行计算和上报即可。根据前面我们对 Pre Main 和 After Main 两个阶段的划分，对于“执行 <code>mian()</code>”和“首屏渲染完成”这两个节点，我们只需要在对应时刻插入统计逻辑即可。对于“进程创建时间”，可以通过 <code>sysctl</code> 系统调用拿到进程创建的时间戳：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 需要先导入头文件</span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;sys/sysctl.h&gt;</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="built_in">NSTimeInterval</span>)processStartTime &#123;   </span><br><span class="line">    <span class="comment">// 单位是毫秒</span></span><br><span class="line">    <span class="keyword">struct</span> kinfo_proc kProcInfo;</span><br><span class="line">    <span class="keyword">if</span> ([<span class="keyword">self</span> processInfoForPID:[[<span class="built_in">NSProcessInfo</span> processInfo] processIdentifier] procInfo:&amp;kProcInfo]) &#123;</span><br><span class="line">        <span class="keyword">return</span> kProcInfo.kp_proc.p_un.__p_starttime.tv_sec * <span class="number">1000.0</span> + kProcInfo.kp_proc.p_un.__p_starttime.tv_usec / <span class="number">1000.0</span>;</span><br><span class="line">        </span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">NSAssert</span>(<span class="literal">NO</span>, <span class="string">@&quot;无法取得进程的信息&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">+ (<span class="type">BOOL</span>)processInfoForPID:(<span class="type">int</span>)pid procInfo:(<span class="keyword">struct</span> kinfo_proc*)procInfo &#123;</span><br><span class="line">    <span class="type">int</span> cmd[<span class="number">4</span>] = &#123;<span class="built_in">CTL_KERN</span>, KERN_PROC, KERN_PROC_PID, pid&#125;;</span><br><span class="line">    size_t size = <span class="keyword">sizeof</span>(*procInfo);</span><br><span class="line">    <span class="keyword">return</span> sysctl(cmd, <span class="keyword">sizeof</span>(cmd)/<span class="keyword">sizeof</span>(*cmd), procInfo, &amp;size, <span class="literal">NULL</span>, <span class="number">0</span>) == <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>iOS 9 之前 <code>sysctl</code> 还能获取到其他进程的信息，后来 Apple 为了隐私安全禁止了 <code>sysctl</code> 获取其他进程的信息，但是仍然允许获取当前进程的信息。</p>
+<h4 id="2-无侵入监控方案"><a href="#2-无侵入监控方案" class="headerlink" title="(2) 无侵入监控方案"></a>(2) 无侵入监控方案</h4><p>无侵入监控的好处是降低使用者的学习成本，无需更改 APP 的现有逻辑。无侵入埋点对冷启动的定义仍然可以是“进程创建”到“首屏渲染完成”这段时间，这里可以参考字节的 APM 团队提供的一种无侵入的启动监控方案，方案将启动流程拆分成几个粒度比较粗的与业务无关的阶段：进程创建，最早的 <code>+load</code>，<code>didFinishLuanching</code> 开始和首屏首次绘制完成。<br><img src="/images/lix_blog_124.png"><br>前三个时间点无侵入获取较为简单</p>
+<ul>
+<li>进程创建：通过 sysctl 系统调用拿到进程创建的时间戳（实现方式前面提到了）。</li>
+<li>最早的 <code>+load</code>：<code>+load</code>、initializer 的调用顺序和链接顺序有关，链接顺序默认按照 CocoaPod 的 Pod 命名升序排列，所以将组件命名为 AAA 开头既可以让某个 <code>+load</code>、initializer 第一个被执行。</li>
+<li><code>didFinishLaunching</code>：监控 SDK 初始化一般在启动的很早期，用监控 SDK 的初始化时间作为 <code>didFinishLaunching</code> 的时间。</li>
+</ul>
+<p>那么问题来了：<br><strong>如何无侵入获取“首屏渲染完成”时间？</strong></p>
+<p>iOS 13 开始，Apple 提供了 MetricKit 用于统计 APP 的性能数据，包括 APP 启动时间、电池使用、磁盘 IO 等性能数据，iOS 系统会自动收集收集这些性能数据进行上报，在 Xcode 11 版本我们可以在 Window - Organizer 中看到 APP 的这些数据：<br><img src="/images/lix_blog_125.png"><br>MetricKit 官方的统计的冷启动结束时间（首屏渲染完成时间）是完成第一个 CA::Transaction::commit 的时间，这点我们可以与之对齐。而我们如何准确获取到这个时间呢？</p>
+<p>CATransaction 的 setCompletionBlock: 方法会在 CATransaction commit 结束被调用，所以我们可以利用这个 API 获取完成第一个 CA::Transaction::commit 的时间：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[<span class="built_in">CATransaction</span> setCompletionBlock:^&#123;</span><br><span class="line">    <span class="keyword">static</span> <span class="built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        <span class="comment">// 首屏渲染完成</span></span><br><span class="line">    &#125;);</span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
+<p>经过测试可以发现，该 Block 回调时间在首个 ViewController（例如 TabBarViewController） 的 viewWillAppear 和 viewDidAppear 之间，相对来说还是比较准确的。</p>
+<p>关于 MetricKit 工具，除了系统自动收集上报前面提到的那些数据外，MetricKit  还会统计上报 OSSignpost 事件持续的时间，所以我们可以借助 OSSignpost 完成一些自定义指标的收集。MetricKit  还会在一天结束后，将过去 24 小时搜集的性能数据归集在一起，然后在下一次启动 App 后，在 delegate 的回调中提供给我们（开发阶段可以手动触发：Xcode &gt; Debug &gt; Simulate MetricKit Payloads），这些数据已经做了聚合计算，划分为 50 分位数、90 分位数和 95 分位数的统计数据，拿到这些数据后我们可以直接用柱状图展示。所以我们也可以借助 MetricKit 相关 API 完成关键数据的收集，关于 MetricKit  用法网上有较多资料，这里不再补充。</p>
+<h3 id="3、调试工具"><a href="#3、调试工具" class="headerlink" title="3、调试工具"></a>3、调试工具</h3><h4 id="1-Xcode-打印-pre-main-时间"><a href="#1-Xcode-打印-pre-main-时间" class="headerlink" title="(1) Xcode 打印 pre-main 时间"></a>(1) Xcode 打印 pre-main 时间</h4><p>Xcode 提供了一个很便捷的方式打印 pre-main 阶段耗时情况，开启方式为：在 Edit scheme -&gt; Run -&gt; Arguments -&gt; Environment Variables 中将环境变量 DYLD_PRINT_STATISTICS 设为 1，就可以看到 main 之前各个阶段的时间消耗。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">Total pre-main time:  80.58 milliseconds (100.0%)</span><br><span class="line">         dylib loading time: 145.27 milliseconds (180.2%)</span><br><span class="line">        rebase/binding time: 126687488.6 seconds (128083892.1%)</span><br><span class="line">            ObjC setup time: 136.30 milliseconds (169.1%)</span><br><span class="line">           initializer time:  91.84 milliseconds (113.9%)</span><br><span class="line">           slowest intializers :</span><br><span class="line">             libSystem.B.dylib :   6.23 milliseconds (7.7%)</span><br><span class="line">   libBacktraceRecording.dylib :   6.51 milliseconds (8.0%)</span><br><span class="line">               libobjc.A.dylib :  11.04 milliseconds (13.7%)</span><br><span class="line">                CoreFoundation :   5.64 milliseconds (7.0%)</span><br><span class="line">                    Foundation :   4.91 milliseconds (6.1%)</span><br><span class="line">    libMainThreadChecker.dylib :  28.61 milliseconds (35.5%)</span><br><span class="line">        libLLVMContainer.dylib :  24.80 milliseconds (30.7%)</span><br></pre></td></tr></table></figure>
+<p>如果将将环境变量 DYLD_PRINT_STATISTICS_DETAILS 设为 1，可以看到更加详细的数据：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">total time: 2.9 seconds (100.0%)</span><br><span class="line">total images loaded:  341 (334 from dyld shared cache)</span><br><span class="line">total segments mapped: 21, into 383 pages</span><br><span class="line">total images loading time: 2.7 seconds (94.8%)</span><br><span class="line">total load time in ObjC:   8.29 milliseconds (0.2%)</span><br><span class="line">total debugger pause time: 2.5 seconds (88.5%)</span><br><span class="line">total dtrace DOF registration time:   0.00 milliseconds (0.0%)</span><br><span class="line">total rebase fixups:  16,242</span><br><span class="line">total rebase fixups time:   1.69 milliseconds (0.0%)</span><br><span class="line">total binding fixups: 496,287</span><br><span class="line">total binding fixups time:  92.61 milliseconds (3.1%)</span><br><span class="line">total weak binding fixups time:   0.01 milliseconds (0.0%)</span><br><span class="line">total redo shared cached bindings time: 159.41 milliseconds (5.4%)</span><br><span class="line">total bindings lazily fixed up: 0 of 0</span><br><span class="line">total time in initializers and ObjC +load:  48.24 milliseconds (1.6%)</span><br><span class="line">                     libSystem.B.dylib :   5.00 milliseconds (0.1%)</span><br><span class="line">           libBacktraceRecording.dylib :   6.48 milliseconds (0.2%)</span><br><span class="line">            libMainThreadChecker.dylib :  30.63 milliseconds (1.0%)</span><br><span class="line">total symbol trie searches:    1168220</span><br><span class="line">total symbol table binary searches:    0</span><br><span class="line">total images defining weak symbols:  35</span><br><span class="line">total images using weak symbols:  89</span><br></pre></td></tr></table></figure>
+<h4 id="2-App-Launch"><a href="#2-App-Launch" class="headerlink" title="(2) App Launch"></a>(2) App Launch</h4><p>App Launch 是 Xcode 11 后新出的模板，同时包含了 Time Profile 以及 System Trace 的功能，可以用于查看 App 的启动过程，从而可以针对性的对启动速度进行优化，使用方式如下：</p>
+<ul>
+<li>首先在 Xcode 的 build settings 中 Debug Information Format 设置为 DWARF with dsYM File (用于符号化地址)</li>
+<li>Xcode 编译运行项目</li>
+<li>通过 Xcode –&gt; Open Developer Tool –&gt; Instruments –&gt; APP Launch 启动应用，App Launch 会启动应用 5 秒后自动关闭应用。</li>
+</ul>
+<p>之后就可以查看主线程被阻塞的情况，再借助 Time Profile 查看调用堆栈定位耗时任务进行优化即可。</p>
+<h4 id="3-OSSignpost"><a href="#3-OSSignpost" class="headerlink" title="(3) OSSignpost"></a>(3) OSSignpost</h4><p>OSSignpost 是 iOS 12 推出的可以用于在 instruments 里标记时间段的 API，性能非常高，可以认为对启动无影响：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;os/signpost.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 创建一个 log 对象</span></span><br><span class="line">os_log_t log = os_log_create(<span class="string">&quot;com.demo.signpost&quot;</span>, <span class="string">&quot;mySignpost&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 创建 os_signpost 的 ID</span></span><br><span class="line">os_signpost_id_t spid = os_signpost_id_generate(log);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 标记开始，或者使用 MXSignpostIntervalBegin(log, event_id, name, ...)</span></span><br><span class="line">os_signpost_interval_begin(log, spid, <span class="string">&quot;task&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 要监控的逻辑放到 begin 和 end 之间</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 标记开始，或者使用 MXSignpostIntervalEnd(log, event_id, name, ...)</span></span><br><span class="line">os_signpost_interval_end(log, spid, <span class="string">&quot;task&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>其中 os_log_create 函数有两个参数：</p>
+<ul>
+<li>第一个参数 subsystem：标识，反向 DNS 格式，例如 com.demo.signpost</li>
+<li>第二个参数 category：分类</li>
+</ul>
+<p>os_signpost_interval_begin 和 os_signpost_interval_end 用于标记开始和结束，第三个参数是给时间段的事件名。并且还可以增加第四、五个参数用于携带元数据，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">os_signpost_interval_begin(log, spid, <span class="string">&quot;task&quot;</span>, <span class="string">&quot;Start&quot;</span>);</span><br><span class="line">os_signpost_interval_end(log, spid, <span class="string">&quot;task&quot;</span>, <span class="string">&quot;Finished with size %d&quot;</span>, <span class="number">10</span>);</span><br></pre></td></tr></table></figure>
+<p>除此之外，还可以利用 os_signpost_event_emit 函数添加兴趣点，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">os_signpost_event_emit(log, spid, <span class="string">&quot;task&quot;</span>, <span class="string">&quot;testEmit&quot;</span>);</span><br></pre></td></tr></table></figure>
+<p>除了 MetricKit  会统计使用 OSSignpost  的自定义事件时长数据外，我们还可以借助 Instruments 工具来查看这些数据，先看下 demo 内容：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">os_log_t log = os_log_create(<span class="string">&quot;com.demo.signpost&quot;</span>, <span class="string">&quot;mySignpost&quot;</span>);</span><br><span class="line">os_signpost_id_t spid = os_signpost_id_generate(log);</span><br><span class="line"></span><br><span class="line"><span class="built_in">dispatch_queue_t</span> queue1 = dispatch_queue_create(<span class="string">&quot;com.demo.queue1&quot;</span>, DISPATCH_QUEUE_SERIAL);</span><br><span class="line"><span class="built_in">dispatch_queue_t</span> queue2 = dispatch_queue_create(<span class="string">&quot;com.demo.queue2&quot;</span>, DISPATCH_QUEUE_SERIAL);</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">10</span>; i++)&#123;</span><br><span class="line">    <span class="built_in">dispatch_async</span>(queue1, ^&#123;</span><br><span class="line">        [<span class="keyword">self</span> randomSleep];</span><br><span class="line">        os_signpost_interval_begin(log, spid, <span class="string">&quot;task&quot;</span>);</span><br><span class="line">        [<span class="keyword">self</span> randomSleep];</span><br><span class="line">        <span class="keyword">if</span> (i == <span class="number">3</span>) &#123;</span><br><span class="line">            <span class="comment">// 兴趣点</span></span><br><span class="line">            os_signpost_event_emit(log, spid, <span class="string">&quot;task&quot;</span>, <span class="string">&quot;testEmit&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        os_signpost_interval_end(log, spid, <span class="string">&quot;task&quot;</span>);</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">dispatch_async</span>(queue2, ^&#123;</span><br><span class="line">        [<span class="keyword">self</span> randomSleep];</span><br><span class="line">        <span class="comment">// 可以携带元数据</span></span><br><span class="line">        os_signpost_interval_begin(log, spid, <span class="string">&quot;task2&quot;</span>, <span class="string">&quot;xxxxxx&quot;</span>);</span><br><span class="line">        [<span class="keyword">self</span> randomSleep];</span><br><span class="line">        os_signpost_interval_end(log, spid, <span class="string">&quot;task2&quot;</span>);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>运行 demo，然后打开 Instruments 选择 Blank：<br><img src="/images/lix_blog_126.png"></p>
+<p>点击右上角加号，选择 os_signpost 双击或拖动到左边：<br><img src="/images/lix_blog_127.png"></p>
+<p>开始调试就可以看到相关数据了：<br><img src="/images/lix_blog_128.png"></p>
+<p>所以，可以借助这种方式调试启动过程中代码逻辑耗时情况。</p>
+<h4 id="4-火焰图"><a href="#4-火焰图" class="headerlink" title="(4) 火焰图"></a>(4) 火焰图</h4><p>火焰图用来分析时间相关的性能瓶颈非常有用，可以直接把业务代码的耗时绘制出来。本质上是使用 hook <code>objc_msgSend</code> 或者编译期插桩在方法的开始和末尾打两个点，以计算这个方法的耗时，然后转换成 Chrome 的标准的 json 格式就可以分析了，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">CFTimeInterval</span> begin = <span class="built_in">CACurrentMediaTime</span>();</span><br><span class="line"><span class="comment">// do something</span></span><br><span class="line"><span class="built_in">CFTimeInterval</span> end = <span class="built_in">CACurrentMediaTime</span>();</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;cost = %@&quot;</span>,(end - begin));</span><br></pre></td></tr></table></figure>
+<p>可以看到上面是使用 <code>CACurrentMediaTime()</code> 获取的时间，那么这种方式与 <code>NSDate</code>、<code>CFAbsoluteTimeGetCurrent()</code> 有何区别呢？</p>
+<p>区别：</p>
+<ul>
+<li><p><code>NSDate</code> 属于 Foundation 框架、<code>CFAbsoluteTimeGetCurrent()</code> 属于 CoreFoundation框架、<code>CACurrentMediaTime()</code> 属于 QuartzCore 框架</p>
+<ul>
+<li>QuartzCore 框架提供了图形处理和视频图像处理的能力，Core Animation 就属于 QuartzCore 框架</li>
+</ul>
+</li>
+<li><p><code>NSDate</code> 或 <code>CFAbsoluteTimeGetCurrent()</code> 返回网络时间同步的时钟时间。</p>
+</li>
+<li><p><code>CACurrentMediaTime()</code> 和 <code>mach_absolute_time()</code> 是系统时间，是基于内建时钟的，能够更精确更原子化地测量，并且不会因为外部时间变化而变化（例如时区变化、夏时制、秒突变等），但它和系统的 uptime 有关，系统重启后 <code>CACurrentMediaTime()</code> 会被重置。</p>
+</li>
+</ul>
+<p>应用场景：</p>
+<ul>
+<li><code>NSDate</code>、<code>CFAbsoluteTimeGetCurrent()</code> 常用于日常时间、时间戳的表示，与服务器之间的数据交互，其中 <code>CFAbsoluteTimeGetCurrent()</code> 相当于<code>[[NSDate data] timeIntervalSinceReferenceDate]</code>；</li>
+<li><code>CACurrentMediaTime()</code> 常用于测试代码的效率；</li>
+</ul>
+<p>知道了如何计算代码的执行时间，那如何以可视化方式展示数据呢？有两种方式，一种是借助 Chrome 内置的 chrome:&#x2F;&#x2F;tracing 工具，我们将统计的数据格式转成该工具所需的 格式即可导入展示。</p>
+<p>另一种方式是借助开源工具 <a target="_blank" rel="noopener" href="https://github.com/everettjf/AppleTrace">AppleTrace</a>，该工具会生成可直观展示数据的 html，实现原理和使用方式可以查看该 github 中贴出的文章<a target="_blank" rel="noopener" href="https://everettjf.github.io/2017/09/21/appletrace">《AppleTrace 性能分析工具》</a>。该工具最终生成的火焰图效果如下：<br><img src="/images/lix_blog_129.png"></p>
+<h2 id="二、优化实践"><a href="#二、优化实践" class="headerlink" title="二、优化实践"></a>二、优化实践</h2><h3 id="1、Pre-Main-阶段优化"><a href="#1、Pre-Main-阶段优化" class="headerlink" title="1、Pre Main 阶段优化"></a>1、Pre Main 阶段优化</h3><p>前面已经提到 Pre Main 阶段的任务：</p>
+<ul>
+<li>加载动态库</li>
+<li>Rebase &amp; Bind</li>
+<li>Objc setup</li>
+<li>Initializers</li>
+</ul>
+<p>我们可以针对这些任务进行针对性优化：</p>
+<h4 id="1-减少动态库数量"><a href="#1-减少动态库数量" class="headerlink" title="(1) 减少动态库数量"></a>(1) 减少动态库数量</h4><p>减少动态库数量可以加减少 dyld 3 启动闭包创建和加载动态库阶段的耗时，官方建议动态库数量小于 6 个。减少动态库可以合并动态库或者将动态库转为静态库，相较而言，转为静态库在操作上更容易些，是首选方案。</p>
+<p>cocoapods 默认使用的就是静态库，但是如果 Podfile 中加入 use_frameworks! 选项将会使用动态库。</p>
+<h4 id="2-动态库懒加载"><a href="#2-动态库懒加载" class="headerlink" title="(2) 动态库懒加载"></a>(2) 动态库懒加载</h4><p>实现动态库懒加载主要分为两步：</p>
+<ul>
+<li>第一步：在 Build Phases 的 Link Binary With Libraries 中去掉需要懒加载的动态库；</li>
+<li>第二步：运行时使用 <code>dlopen</code> 对动态库按需加载。</li>
+</ul>
+<p>苹果系统 API <code>&lt;dlfcn.h&gt;</code> 中提供了几个操作动态库的方法，包括 <code>dlopen</code>、<code>dlerror</code>、<code>dlsym</code> 和 <code>dlclose</code> 等，我们可以使用 <code>dlopen</code> 对启动阶段不需要的动态库在运行时手动加载。</p>
+<p>需要注意的是，使用 <code>dlopen</code> 懒加载动态库时，<code>dlopen</code> 会调用 <code>dlopen_preflight</code> 先校验动态库签名，如果动态库没有打包进 APP（和 APP 使用相同签名），真机会加载失败并报签名错误。所以动态库懒加载核心思想是使动态库只参与签名不参与链接，在需要动态库的时候我们手动加载动态库。</p>
+<p>非系统的动态库路径是固定的，均位于 “xxx.app&#x2F;Frameworks&#x2F;“ 目录下，可以通过 <code>[NSBundle mainBundle].bundlePath</code> 获取 “xxx.app” 所在的目录，然后在必要时候手动加载动态库：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">char</span> *)dlopenFramework:(<span class="built_in">NSString</span> *)frameworkName &#123;</span><br><span class="line">    <span class="comment">// 根据动态库名称获取动态库所在路径</span></span><br><span class="line">    <span class="built_in">NSString</span> *path = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;%@/Frameworks/%@.framework/%@&quot;</span>,</span><br><span class="line">                      [<span class="built_in">NSBundle</span> mainBundle].bundlePath,</span><br><span class="line">                      frameworkName,</span><br><span class="line">                      frameworkName];</span><br><span class="line">    <span class="comment">// 调用 dlopen 加载动态库</span></span><br><span class="line">    <span class="type">void</span>* fp = dlopen(path.UTF8String, RTLD_LAZY);</span><br><span class="line">    <span class="comment">// 获取 dlopen 产生的错误信息</span></span><br><span class="line">    <span class="type">char</span>* err = dlerror();</span><br><span class="line">    <span class="keyword">return</span> err;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>动态库懒加载也可以使用 <code>[NSBundle loadAndReturnError:]</code> 或 <code>[NSBundle load]</code> 这两个 API，他们本质上调用的是底层的 <code>dlopen</code>，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">BOOL</span>)loadFramework:(<span class="built_in">NSString</span> *)frameworkName &#123;</span><br><span class="line">    <span class="built_in">NSString</span> *path = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;%@/%@&quot;</span>, [<span class="built_in">NSBundle</span> mainBundle].privateFrameworksPath, frameworkName];</span><br><span class="line">    <span class="built_in">NSBundle</span> *bundle = [<span class="built_in">NSBundle</span> bundleWithPath:path];</span><br><span class="line">    <span class="keyword">if</span> (!bundle) &#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@&quot;%@ not found&quot;</span>, frameworkName);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NO</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">NSError</span> *error;</span><br><span class="line">    <span class="keyword">if</span> (![bundle loadAndReturnError:&amp;error]) &#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@&quot;Load %@ failed: %@&quot;</span>, frameworkName, error);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NO</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@&quot;Load %@ success&quot;</span>, frameworkName);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">return</span> <span class="literal">YES</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果将动态库配置成懒加载，就无法直接调用其中的类和方法，因为其符号并不包含在运行内存中。面对这样的情况，我们可以把动态库中提供给外部调用的逻辑收口，使用特定的协议或接口，通过组件化框架在调用接口时尝试加载动态库，再进行实际逻辑的调用：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- (Class&lt;FeatureBridge&gt;)getBridgeWithProtocol:(Protocol *)protocol &#123;</span><br><span class="line">    <span class="built_in">NSString</span> *bridgeName = [<span class="keyword">self</span> getClassNameWithProtocol:protocol];</span><br><span class="line">    Class bridgeClass = <span class="built_in">NSClassFromString</span>(bridgeName);</span><br><span class="line">    <span class="keyword">if</span> (bridgeClass) &#123;</span><br><span class="line">        <span class="comment">// 已加载：直接返回</span></span><br><span class="line">        <span class="keyword">return</span> bridgeClass;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 未加载：加载动态库后再返回</span></span><br><span class="line">        <span class="built_in">NSString</span> *frameworkName = [<span class="keyword">self</span> getFrameworkNameWithProtocol:protocol];</span><br><span class="line">        [<span class="keyword">self</span> dlopenFramework:frameworkName];</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">NSClassFromString</span>(bridgeName);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>经验证，手动调用 <code>dlopen</code> 的耗时大于系统 <code>dyld</code> 加载耗时，所以需要避免在主线程直接调用 <code>dlopen</code> 操作。一个有效的解决手段是在启动阶段或者启动完成后，异步预加载所有懒加载的动态库。</p>
+<p>对于使用 Cocoapods 管理的项目也可以配置动态库懒加载：在 pod install 之后，会生成 Pods-xxx-frameworks.sh 和 Pods-xxx.release.xcconfig 这两个文件，其中 Pods-xxx-frameworks.sh 文件脚本负责架构剔除和重签名等功能，而 Pods-xxx.xcconfig 文件则负责静态库和动态库的链接配置，我们自定义的动态库想要进行懒加载，只需要修改 xxx.xcconfig 配置文件，将需要懒加载的动态库从配置文件中移除，这样保证懒加载的动态库参与签名和拷贝，但是不参与链接。<br><img src="/images/lix_blog_130.png"><br>需要注意的是使用动态库懒加载是有一定风险的，而且 Apple 官方也不建议懒加载动态库。懒加载动态库的前提是不做频繁升级和变更，但是一旦升级则可能引起灾难性的后果，因为 API 发生变更，编译能正常通过，因为编译是依赖协议进行的，API 发生了变更很可能负责升级的同学并没有对协议进行升级，可以在 debug 环境下利用 Runtime 对相关 API 进行检测。</p>
+<h4 id="3-移除无用代码"><a href="#3-移除无用代码" class="headerlink" title="(3) 移除无用代码"></a>(3) 移除无用代码</h4><p>移除无用代码可以减少 Rebase &amp; Bind &amp; Runtime 初始化的耗时，可通过静态扫描方式查找无用代码，最容易的静态扫描是使用 AppCode，但是项目大了之后 AppCode 的索引速度非常慢，另外的一种静态扫描是基于 Mach-O 的：</p>
+<ul>
+<li><code>_objc_selrefs</code> 和 <code>_objc_classrefs</code> 存储了引用到的 <code>sel</code> 和 <code>class</code></li>
+<li><code>__objc_classlist</code> 存储了所有的 <code>sel</code> 和 <code>class</code><br><img src="/images/lix_blog_131.png"></li>
+</ul>
+<p>二者做个差集就知道那些 class&#x2F;sel 用不到，实现方式可以参考：<a target="_blank" rel="noopener" href="https://github.com/nst/objc_cover">objc_cover</a>，由于 OC 支持运行时调用，删除之前还要再二次确认。</p>
+<h4 id="4-load-优化"><a href="#4-load-优化" class="headerlink" title="(4) +load 优化"></a>(4) +load 优化</h4><p>过多的 <code>+load</code> 方法会拖慢启动速度，一种优化方式是将 <code>+load</code> 方法中的任务迁移到 <code>+initialize</code> 方法中：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">+ (<span class="type">void</span>)initialize &#123;</span><br><span class="line">    <span class="keyword">static</span> <span class="built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        <span class="comment">// ...</span></span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>对于有些任务确实需要在启动的早期（<code>+load</code>）里注册的，例如各个组件经常在 <code>+load</code> 方法中注册自己提供的 <code>Service</code>，即 <code>protocol</code> 和 class 对应关系，可以使用 clang attribute 代替。Clang 提供了很多的编译器函数，它们可以完成不同的功能。其中一种就是 <code>section()</code> 函数，<code>section()</code> 函数提供了二进制段的读写能力，它可以将一些编译期就可以确定的常量写入数据段，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">__attribute__((used, section (&quot;xxx段,xxx节&quot;)))</span><br></pre></td></tr></table></figure>
+<p>通过使用 <code>__attribute__((section(&quot;xxx段,xxx节&quot;)))</code> 来指明将数据存储到哪个段哪个节。<code>__attribute__((used))</code> 告诉编译器该静态变量即使没有被使用也要保留，防止链接器在优化时将其删除。</p>
+<p>借助 clang attribute 取代 <code>+load</code> 进行 <code>Service</code> 注册的 demo 如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;dlfcn.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;mach-o/getsect.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> ServiceInfo &#123;</span><br><span class="line">    <span class="type">char</span> *<span class="keyword">class</span>;</span><br><span class="line">    <span class="type">char</span> *protocol;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> ServiceRegister(_class_,_protocol_)\</span></span><br><span class="line"><span class="meta">__attribute__((used, section (<span class="string">&quot;__DATA,__services__&quot;</span>))) static struct ServiceInfo ServiceInfo##_class_ =\</span></span><br><span class="line"><span class="meta">&#123;\</span></span><br><span class="line"><span class="meta">    .class = #_class_,\</span></span><br><span class="line"><span class="meta">    .protocol = #_protocol_,\</span></span><br><span class="line"><span class="meta">&#125;;</span></span><br></pre></td></tr></table></figure>
+<p>使用时：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ServiceRegister(AAAclass, AAAprotocol);</span><br><span class="line">ServiceRegister(BBBclass, BBBprotocol);</span><br></pre></td></tr></table></figure>
+<p>取数据：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1.根据符号找到所在的 mach-o 文件信息</span></span><br><span class="line">Dl_info info;</span><br><span class="line">dladdr((__bridge <span class="type">void</span> *)[<span class="keyword">self</span> <span class="keyword">class</span>], &amp;info);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2.读取 __DATA 中自定义的 __services__ 数据</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> __LP64__</span></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">struct</span> mach_header *mhp = (<span class="keyword">struct</span> mach_header*)info.dli_fbase;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> serviceSize = <span class="number">0</span>;</span><br><span class="line">    uint32_t *serviceMemory = (uint32_t*)getsectiondata(mhp, <span class="string">&quot;__DATA&quot;</span>, <span class="string">&quot;__services__&quot;</span>, &amp;serviceSize);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">struct</span> mach_header_64 *mhp = (<span class="keyword">struct</span> mach_header_64*)info.dli_fbase;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> serviceSize = <span class="number">0</span>;</span><br><span class="line">    uint64_t *serviceMemory = (uint64_t*)getsectiondata(mhp, <span class="string">&quot;__DATA&quot;</span>, <span class="string">&quot;__services__&quot;</span>, &amp;serviceSize);</span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 3.遍历 __services__ 中的数据</span></span><br><span class="line"><span class="type">unsigned</span> <span class="type">long</span> serviceCount = serviceSize/<span class="keyword">sizeof</span>(<span class="keyword">struct</span> ServiceInfo);</span><br><span class="line"><span class="keyword">struct</span> ServiceInfo *items = (<span class="keyword">struct</span> ServiceInfo*)serviceMemory;</span><br><span class="line"><span class="keyword">for</span>(<span class="type">int</span> idx = <span class="number">0</span>; idx &lt; serviceCount; ++idx) &#123;</span><br><span class="line">    <span class="built_in">NSString</span> *<span class="keyword">class</span> = [<span class="built_in">NSString</span> stringWithUTF8String:items[idx].class];</span><br><span class="line">    <span class="built_in">NSString</span> *protocol = [<span class="built_in">NSString</span> stringWithUTF8String:items[idx].protocol];;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;class:%@，protocol:%@&quot;</span>, <span class="keyword">class</span>, protocol);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>打印结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">class:AAAclass，protocol:AAAprotocol</span><br><span class="line">class:BBBclass，protocol:BBBprotocol</span><br></pre></td></tr></table></figure>
+<p>我们使用 MachOView 工具查看 Mach-O 可以看到我们存储的数据：<br><img src="/images/lix_blog_132.png"></p>
+<h4 id="5-减少静态初始化方法的使用"><a href="#5-减少静态初始化方法的使用" class="headerlink" title="(5) 减少静态初始化方法的使用"></a>(5) 减少静态初始化方法的使用</h4><p>例如减少 <code>__attribute__(constructor)</code> 的使用，这里没有太多需要总结的。<br>（使用 <code>__attribute__((constructor))</code> 修饰的函数可以在 main 函数之前调用）。</p>
+<h3 id="2、After-Main-阶段优化"><a href="#2、After-Main-阶段优化" class="headerlink" title="2、After Main 阶段优化"></a>2、After Main 阶段优化</h3><p>After Main 阶段主要耗时的地方在于 <code>didFinishLuanching</code> 中的大量启动项，比如 SDK 注册、业务初始化等。所以这一阶段最佳优化方式是对启动项集中管理，并且根据启动项的重要和紧急程度，提供三种启动时机：</p>
+<ul>
+<li>同步启动</li>
+<li>异步启动</li>
+<li>首屏渲染完成后启动</li>
+</ul>
+<p>当然也可以根据自己 APP 需求提供其他启动时机，对于那些不是立刻能用到的 SDK 或者某些任务，比如微信分享 SDK，放到首屏渲染完成后启动，这样能有效减少启动项带来的耗时。</p>
+<p>对于启动项注册主要有两种方式：</p>
+<ul>
+<li>.plist 中集中注册启动项；</li>
+<li>启动项自注册，即由需要设置启动项的组件自行注册启动项；</li>
+</ul>
+<p>对于 .plist 中集中注册启动项的方式，启动项、组件之间产生了耦合，当这个组件被另个 APP 依赖的时候，又需要重新注册启动项，启动项注册逻辑无法复用。而启动项自注册的方式，恰好解决了这个问题。那组件如何自行注册启动项呢？一般是在 +load 方法中进行注册，但是 +load 方法会增加 Pre Main 阶段耗时，所以应当使用前面提到的 clang attribute 相关函数进行注册。</p>
+<p>为了准确知道各启动项耗时情况，还应当对每个启动项进行监控，记录耗时时长并进行上报，在开发阶段和上线后跟踪启动项的耗时，及时进行优化。对于获取启动项耗时可以使用前面提到的在任务开始、结束分别使用 <code>CACurrentMediaTime()</code> 获取时间计算差值即可。</p>
+<p>而对于首页渲染耗时，则需要根据业务逻辑进行优化，例如缓存必要数据、子线程预加载动画文件等。</p>
+<p><strong>参考：</strong><br><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzI1MzYzMjE0MQ==&mid=2247487757&idx=1&sn=a52c11f6a6f217bd0d3283de9b00c8bc&chksm=e9d0daefdea753f954cfcb15d5d0f90302a9f45ba06968377644ffe9e5757a69c5b0132d2c8b&scene=178&cur_album_id=1590407423234719749#rd">抖音品质建设 - iOS启动优化</a><br><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/3063053a6114">从探索到实践，58动态库懒加载实录
+</a></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/40965/">
+        <span class="nav-arrow">← </span>
+        
+          APP 启动优化 1 - 冷启动流程
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/29690/">
+        
+          APP 启动优化 3 - 二进制重排
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/29857/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

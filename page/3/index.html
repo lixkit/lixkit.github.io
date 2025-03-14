@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta property="og:type" content="website">
+<meta property="og:title" content="李峰峰博客">
+<meta property="og:url" content="https://www.lixkit.com/page/3/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="李峰峰, iOS, 底层原理, Runtime, Runloop, 热修复">
+<meta name="twitter:card" content="summary">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link active">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link mobile-active">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <main class="app-body">
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/21474/">RunLoop 实现原理</a>
+      </h2>
+      <p class="article-date">2020年7月27日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runloop" >
+    <span class="tag-code">runloop</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、RunLoop 的概念我们都知道，APP 运行过程中有一个很重要的线程，就是主线程。但是，一般线程执行完任务后就会退出，而 APP 需要持续运行，所以就需要一个机制使主线程持续运行并随时处理用户事件，在 iOS 里，程序的持续运行就是通过 RunLoop 实现的。
+RunLoop 的作用 ...
+        
+      </div>
+      <a class="more" href="/posts/21474/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/60564/">Runtime 拾遗</a>
+      </h2>
+      <p class="article-date">2020年5月12日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runtime" >
+    <span class="tag-code">runtime</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、self 和 supersuper 是每个开发者都很熟悉的东西，我们经常在重写父类方法的时候，经常通过 super 去调用一下父类的实现，例如：
+123456- (instancetype)init &#123;    if (self = [super init]) &#123;    ...
+        
+      </div>
+      <a class="more" href="/posts/60564/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/39373/">Runtime 之消息机制</a>
+      </h2>
+      <p class="article-date">2020年5月10日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runtime" >
+    <span class="tag-code">runtime</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、objc_msgSend 简介在 OC 中，所有的方法调用底层都会转换成 objc_msgSend 函数进行调用，例如，对于下面方法调用：
+12[myObject test1];[myObject test2:100];
+将其转换成 C++ 源码：
+12((void (*)(id, SE ...
+        
+      </div>
+      <a class="more" href="/posts/39373/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/1794/">Runtime 之 method</a>
+      </h2>
+      <p class="article-date">2020年4月26日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runtime" >
+    <span class="tag-code">runtime</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、method 与 Class先看下 Class 的结构：class_rw_t 里面的 methods、properties、protocols 是二维数组，是可读可写的，包含了类的初始内容、分类的内容：也就是说，这里的 methods 既包含分类中的方法，也包含了类的初始方法。实际上，我 ...
+        
+      </div>
+      <a class="more" href="/posts/1794/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/42759/">Block 实现原理</a>
+      </h2>
+      <p class="article-date">2020年4月10日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#block" >
+    <span class="tag-code">block</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、block 的底层结构假设对于以下 block：
+12345int a = 10;void (^myblock)(void) = ^&#123;    NSLog(@&quot;myblock is %d&quot;,a); // 注意，block 内部访问了外部变量&#125;;myb ...
+        
+      </div>
+      <a class="more" href="/posts/42759/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/25223/">OC 对象一探究竟之三：alloc 与 init</a>
+      </h2>
+      <p class="article-date">2020年3月29日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一般我们都是通过如下方式创建一个对象：
+1MyObject *objc = [[MyObject alloc] init];
+那么，alloc 和 init 方法都分别做了什么事呢？
+1、allocalloc 方法实现如下：
+123+ (id)alloc &#123;    return _ ...
+        
+      </div>
+      <a class="more" href="/posts/25223/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/16257/">OC 对象一探究竟之二：内存中的对象</a>
+      </h2>
+      <p class="article-date">2020年3月28日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、NSObject 对象的内存占用首先，我们知道，在 32 位系统中，指针占用 4 个字节；在 64 位系统中，指针占用 8 个字节。这里，我们只考虑 64 位情况。
+对于 NSObject 对象， 其实现如下：
+12345struct NSObject_IMPL &#123;    Cl ...
+        
+      </div>
+      <a class="more" href="/posts/16257/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/60413/">OC 对象一探究竟之一：对象的底层实现</a>
+      </h2>
+      <p class="article-date">2019年11月21日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#isa" >
+    <span class="tag-code">isa</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、NSObject 对象1、NSObject 的底层实现我们在 iOS 开发过程中，所编写的 Objective-C 代码，其底层实现都是使用的 C\C++ 代码，所以 Objective-C 的面向对象都是基于 C\C++ 的数据结构实现的。
+例如，对于以下代码（main.m）：
+123 ...
+        
+      </div>
+      <a class="more" href="/posts/60413/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/26714/">AFNetworking 实现分析</a>
+      </h2>
+      <p class="article-date">2019年10月11日</p>
+      
+        
+  <a href="/tags#源码" >
+    <span class="tag-code">源码</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述AFNetworking 是 iOS 中常用的网络请求库，其使用也比较简单，以 POST 请求为例：
+1234567891011121314151617181920212223242526// 创建 AFHTTPSessionManager 实例AFHTTPSessionManage ...
+        
+      </div>
+      <a class="more" href="/posts/26714/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/27553/">MLeaksFinder 实现分析</a>
+      </h2>
+      <p class="article-date">2019年10月6日</p>
+      
+        
+  <a href="/tags#源码" >
+    <span class="tag-code">源码</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述MLeaksFinder 是腾讯 WeRead 团队开源的 iOS 内存泄露检测工具。MLeaksFinder 的使用非常简单，使用 pod 添加了 MLeaksFinder 依赖之后，如果页面出现了内存泄露，APP 进行弹窗提示：
+接下来，通过 MLeaksFinder 源码，看下 ...
+        
+      </div>
+      <a class="more" href="/posts/27553/">阅读全文</a>
+    </article>
+  
+
+  
+    <div class="guide-pager">
+  
+    <a href="/page/2/"><span class="page-arrow">← </span>上一页</a>
+  
+  
+    <a href="/page/4/">下一页<span class="page-arrow"> →</span></a>
+  
+</div>
+  
+</main>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

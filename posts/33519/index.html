@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、概述单例在 iOS 中应用广泛，常用于管理全局的资源，如应用程序的配置信息、数据库管理、网络请求管理器等。dispatch_once 常被用来实现单例，如下是创建单例的一个最基本的用法： 123456789101112@implementation TestObject+ (instancetype)sharedInstance &#123;    static TestObject *ins">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GCD 底层原理 1 - dispatch_once">
+<meta property="og:url" content="https://www.lixkit.com/posts/33519/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、概述单例在 iOS 中应用广泛，常用于管理全局的资源，如应用程序的配置信息、数据库管理、网络请求管理器等。dispatch_once 常被用来实现单例，如下是创建单例的一个最基本的用法： 123456789101112@implementation TestObject+ (instancetype)sharedInstance &#123;    static TestObject *ins">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_67.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_133.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_217.png">
+<meta property="article:published_time" content="2022-10-15T08:39:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.903Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_67.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      GCD 底层原理 1 - dispatch_once | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>GCD 底层原理 1 - dispatch_once</h2>
+  <p class="post-date">2022-10-15</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、概述"><a href="#一、概述" class="headerlink" title="一、概述"></a>一、概述</h2><p>单例在 iOS 中应用广泛，常用于管理全局的资源，如应用程序的配置信息、数据库管理、网络请求管理器等。<code>dispatch_once</code> 常被用来实现单例，如下是创建单例的一个最基本的用法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">TestObject</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)sharedInstance &#123;</span><br><span class="line">    <span class="keyword">static</span> TestObject *instance;</span><br><span class="line">    <span class="keyword">static</span> <span class="built_in">dispatch_once_t</span> onceToken;</span><br><span class="line">    <span class="built_in">dispatch_once</span>(&amp;onceToken, ^&#123;</span><br><span class="line">        instance = [[TestObject alloc] init];</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="keyword">return</span> instance;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>通过使用 <code>dispatch_once</code> 和静态变量，可以确保在多线程环境下，TestObject 类的实例只会被创建一次。这种实现方式是线程安全的，并且是 Objective-C 中实现单例模式的标准方法。</p>
+<h2 id="二、实现原理"><a href="#二、实现原理" class="headerlink" title="二、实现原理"></a>二、实现原理</h2><p><code>libdispatch</code> 是 Apple 的 Grand Central Dispatch (GCD) 的实现库，<code>libdispatch</code> 提供了用于在多核硬件上执行并发代码的基础设施。<br>它通过管理线程池和调度任务来优化性能，减少上下文切换，并提高应用程序的响应能力。</p>
+<p><code>dispatch_once</code> 是 <code>libdispatch</code> 提供的一个函数，用于确保某段代码在程序的生命周期内只执行一次。通过使用 <code>dispatch_once</code>，开发者可以轻松实现线程安全的初始化逻辑，而无需担心多线程环境下的竞态条件。</p>
+<p><code>libdispatch</code> 是开源的：<a target="_blank" rel="noopener" href="https://github.com/apple-oss-distributions/libdispatch">apple-oss-distributions&#x2F;libdispatch</a>，接下来，通过 <code>libdispatch</code> 源码，看下 <code>dispatch_once</code> 实现原理。</p>
+<h3 id="1、dispatch-once"><a href="#1、dispatch-once" class="headerlink" title="1、dispatch_once"></a>1、dispatch_once</h3><p><code>dispatch_once</code> 实现源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="type">intptr_t</span> <span class="type">dispatch_once_t</span>;</span><br><span class="line"><span class="keyword">typedef</span> <span class="title function_">void</span> <span class="params">(^<span class="type">dispatch_block_t</span>)</span><span class="params">(<span class="type">void</span>)</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span></span><br><span class="line"><span class="title function_">dispatch_once</span><span class="params">(<span class="type">dispatch_once_t</span> *val, <span class="type">dispatch_block_t</span> block)</span></span><br><span class="line">&#123;</span><br><span class="line">    dispatch_once_f(val, block, _dispatch_Block_invoke(block));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_once</code> 主要有两个参数：</p>
+<ul>
+<li><strong>val</strong><ul>
+<li><code>val</code> 是一个指向整数类型的指针。<ul>
+<li><code>dispatch_once_t</code> 是 <code>intptr_t</code> 类型，<code>intptr_t</code> 实际上是个有符号整数类型。</li>
+</ul>
+</li>
+<li>在后续逻辑中，<code>val</code> 会被转成联合体 <code>dispatch_once_gate_t</code>，并借助其中的成员 <code>dgo_once</code> 标识 <code>block</code> 是否已经执行过。<ul>
+<li><code>dgo_once</code> 是一个整数类型。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>block</strong><ul>
+<li>实际要执行的代码块。</li>
+</ul>
+</li>
+</ul>
+<h3 id="2、dispatch-once-f"><a href="#2、dispatch-once-f" class="headerlink" title="2、dispatch_once_f"></a>2、dispatch_once_f</h3><p><code>dispatch_once</code> 中主要调用了 <code>dispatch_once_f</code> 函数，<code>dispatch_once_f</code> 实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line"><span class="title function_">dispatch_once_f</span><span class="params">(<span class="type">dispatch_once_t</span> *val, <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">dispatch_once_gate_t</span> l = (<span class="type">dispatch_once_gate_t</span>)val;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_dispatch_once_gate_tryenter(l)) &#123;</span><br><span class="line">        <span class="keyword">return</span> _dispatch_once_callout(l, ctxt, func);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> _dispatch_once_wait(l);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_once_gate_t</code> 是指向 <code>dispatch_once_gate_s</code> 结构体的指针：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="type">uint32_t</span> dispatch_lock;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_gate_s</span> &#123;</span></span><br><span class="line">    dispatch_lock dgl_lock;</span><br><span class="line">&#125; dispatch_gate_s, *<span class="type">dispatch_gate_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_once_gate_s</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">        dispatch_gate_s dgo_gate;</span><br><span class="line">        <span class="type">uintptr_t</span> dgo_once;</span><br><span class="line">    &#125;;</span><br><span class="line">&#125; dispatch_once_gate_s, *<span class="type">dispatch_once_gate_t</span>;</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_once_gate_s</code> 是一个联合体，主要包含两个成员：</p>
+<ul>
+<li><strong>dgo_gate</strong><ul>
+<li><code>dispatch_gate_s</code> 结构体类型，该结构体中只有一个整数类型的成员 <code>dgl_lock</code>。</li>
+<li><code>dgo_gate</code> 用于实现后续的锁机制。</li>
+</ul>
+</li>
+<li><strong>dgo_once</strong><ul>
+<li>无符号整数，用于存储代码块的执行状态。</li>
+</ul>
+</li>
+</ul>
+<h3 id="3、-dispatch-once-gate-tryenter"><a href="#3、-dispatch-once-gate-tryenter" class="headerlink" title="3、_dispatch_once_gate_tryenter"></a>3、_dispatch_once_gate_tryenter</h3><p><code>dispatch_once_f</code> 内部首先调用 <code>_dispatch_once_gate_tryenter</code> 函数进行判断，<code>_dispatch_once_gate_tryenter</code> 实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dispatch_once_gate_tryenter(<span class="type">dispatch_once_gate_t</span> l)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> os_atomic_cmpxchg(&amp;l-&gt;dgo_once, DLOCK_ONCE_UNLOCKED,</span><br><span class="line">            (<span class="type">uintptr_t</span>)_dispatch_lock_value_for_self(), relaxed);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中，<code>os_atomic_cmpxchg</code> 是一个宏，其相关宏定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> os_atomic_cmpxchg(p, e, v, m) \</span></span><br><span class="line"><span class="meta">        (&#123; _os_atomic_basetypeof(p) _r = (e); \</span></span><br><span class="line"><span class="meta">        atomic_compare_exchange_strong_explicit(_os_atomic_c11_atomic(p), \</span></span><br><span class="line"><span class="meta">        &amp;_r, v, memory_order_##m, memory_order_relaxed); &#125;)</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _os_atomic_basetypeof(p) \</span></span><br><span class="line"><span class="meta">        __typeof__(atomic_load_explicit(_os_atomic_c11_atomic(p), memory_order_relaxed))</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> atomic_load_explicit   __c11_atomic_load</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _os_atomic_c11_atomic(p) \</span></span><br><span class="line"><span class="meta">        ((__typeof__(*(p)) _Atomic *)(p))</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> atomic_compare_exchange_strong_explicit   __c11_atomic_compare_exchange_strong</span></span><br></pre></td></tr></table></figure>
+
+<p><code>_dispatch_once_gate_tryenter</code> 源码完全展开后，实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">DISPATCH_ALWAYS_INLINE</span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dispatch_once_gate_tryenter(<span class="type">dispatch_once_gate_t</span> l)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 预期值，DLOCK_ONCE_UNLOCKED 表示该状态尚未初始化</span></span><br><span class="line">    <span class="type">uintptr_t</span> expected_value = DLOCK_ONCE_UNLOCKED;</span><br><span class="line">    <span class="comment">// 新值，使用当前线程的锁值作为新值</span></span><br><span class="line">    <span class="type">uintptr_t</span> new_value = (<span class="type">uintptr_t</span>)_dispatch_lock_value_for_self(); </span><br><span class="line">    <span class="comment">// 执行原子比较并交换操作</span></span><br><span class="line">    <span class="keyword">return</span> atomic_compare_exchange_strong_explicit(</span><br><span class="line">        <span class="comment">// 将 l-&gt;dgo_once 转换为 C11 原子类型</span></span><br><span class="line">        ((__typeof__(l-&gt;dgo_once) <span class="keyword">_Atomic</span> *)(&amp;l-&gt;dgo_once)),</span><br><span class="line">        <span class="comment">// 预期值的地址，函数会检查 l-&gt;dgo_once 是否等于这个值</span></span><br><span class="line">        &amp;expected_value, </span><br><span class="line">        <span class="comment">// 如果 l-&gt;dgo_once 等于预期值，则将 l-&gt;dgo_once 设置为这个新值</span></span><br><span class="line">        new_value,</span><br><span class="line">        <span class="comment">// 成功时的内存序，memory_order_relaxed 表示此操作是原子的，但不强制其他线程立即看到更新</span></span><br><span class="line">        memory_order_relaxed, </span><br><span class="line">        <span class="comment">// 失败时的内存序</span></span><br><span class="line">        memory_order_relaxed </span><br><span class="line">    );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="（1）atomic-compare-exchange-strong-explicit"><a href="#（1）atomic-compare-exchange-strong-explicit" class="headerlink" title="（1）atomic_compare_exchange_strong_explicit"></a>（1）atomic_compare_exchange_strong_explicit</h4><p><code>atomic_compare_exchange_strong_explicit</code> 是 C11 标准中定义的一个原子操作函数，用于实现比较并交换（Compare and Swap, CAS）操作。</p>
+<p><strong>该函数的主要作用是比较一个原子变量的当前值与预期值，如果相等，则将其更新为新值。这个操作是原子的，意味着它在执行过程中不会被其他线程打断。</strong></p>
+<p><strong>函数原型如下：</strong></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">bool</span> <span class="title function_">atomic_compare_exchange_strong_explicit</span><span class="params">(</span></span><br><span class="line"><span class="params">    <span class="type">atomic_type</span> *obj,</span></span><br><span class="line"><span class="params">    <span class="type">atomic_type</span> *expected,</span></span><br><span class="line"><span class="params">    <span class="type">atomic_type</span> desired,</span></span><br><span class="line"><span class="params">    memory_order success,</span></span><br><span class="line"><span class="params">    memory_order failure</span></span><br><span class="line"><span class="params">)</span>;</span><br></pre></td></tr></table></figure>
+<p><strong>各参数含义：</strong></p>
+<ul>
+<li><code>atomic_type *obj</code><ul>
+<li>指向要操作的原子变量的指针。该变量的值将被比较并可能被更新。</li>
+</ul>
+</li>
+<li><code>aomic_type *expected</code><ul>
+<li>指向预期值的指针。如果 <code>*obj</code> 的值等于 <code>*expected</code>，则将 <code>*obj</code> 更新为 <code>desired</code>。如果不相等，<code>*expected</code> 将被更新为 <code>*obj</code> 的当前值。</li>
+</ul>
+</li>
+<li><code>atomic_type desired</code><ul>
+<li>新值，如果比较成功（即 <code>*obj</code> 的值等于 <code>*expected</code>），则将 <code>*obj</code> 更新为该值。</li>
+</ul>
+</li>
+<li><code>memory_order success</code><ul>
+<li>表示操作成功时的内存序，决定了其他线程对该操作的可见性。</li>
+</ul>
+</li>
+<li><code>memory_order failure</code><ul>
+<li>表示操作失败时的内存序。与成功时的内存序相似，决定了在操作未成功时的可见性。</li>
+</ul>
+</li>
+</ul>
+<p><code>atomic_compare_exchange_strong_explicit</code> 函数作用如下：</p>
+<ul>
+<li>该函数会检查原子变量 <code>obj</code> 的当前值是否等于给定的预期值 <code>expected</code>。如果相等，函数会将该原子变量的值更新为新的值 <code>desired</code>。<ul>
+<li>这个操作是原子的，意味着在执行过程中不会被其他线程打断，从而避免数据竞争和不一致性。</li>
+</ul>
+</li>
+<li>如果操作成功（即当前值等于预期值），函数返回 <code>true</code>，并且原子变量的值被更新为新值。</li>
+<li>如果操作失败（即当前值不等于预期值），函数返回 <code>false</code>，并且预期值会被更新为当前值。</li>
+</ul>
+<p>下面是参考 <code>_dispatch_once_gate_tryenter</code> 实现的一个 <code>atomic_compare_exchange_strong_explicit</code> 的简单示例，该示例和 <code>_dispatch_once_gate_tryenter</code> 一样，使用 <code>memory_order_relaxed</code> 内存序，多个线程并发修改共享的原子变量：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdatomic.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 共享的原子变量</span></span><br><span class="line"><span class="type">atomic_int</span> shared_value;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span>* <span class="title function_">thread_func</span><span class="params">(<span class="type">void</span>* arg)</span> &#123;</span><br><span class="line">    <span class="type">int</span> expected = <span class="number">0</span>; <span class="comment">// 预期值</span></span><br><span class="line">    <span class="type">int</span> desired = <span class="number">1</span>; <span class="comment">// 新值</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 尝试将 shared_value 从 0 改为 1</span></span><br><span class="line">    <span class="keyword">if</span> (atomic_compare_exchange_strong_explicit(&amp;shared_value, &amp;expected, desired,</span><br><span class="line">                                                 memory_order_relaxed,</span><br><span class="line">                                                 memory_order_relaxed)) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;线程 %ld: 成功将值从 0 改为 %d\n&quot;</span>, (<span class="type">long</span>)arg, desired);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;线程 %ld: 值未改变，当前值为 %d，预期值为 %d\n&quot;</span>, (<span class="type">long</span>)arg, shared_value, expected);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 初始化共享原子变量为 0</span></span><br><span class="line">    shared_value = ATOMIC_VAR_INIT(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> threadCount = <span class="number">10</span>;</span><br><span class="line">    <span class="type">pthread_t</span> threads[threadCount];</span><br><span class="line">    <span class="comment">// 创建多个线程</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">long</span> i = <span class="number">0</span>; i &lt; threadCount; i++) &#123;</span><br><span class="line">        pthread_create(&amp;threads[i], <span class="literal">NULL</span>, thread_func, (<span class="type">void</span>*)i);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待所有线程结束</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; threadCount; i++) &#123;</span><br><span class="line">        pthread_join(threads[i], <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>运行打印如下：<br><img src="/images/lix_blog_67.png" alt="upload successful"><br>可以看到，当 <code>atomic_compare_exchange_strong_explicit</code> 原子操作使用 <code>memory_order_relaxed</code> 内存序时，多个线程可以并发执行这个原子操作，但最终只会有一个线程成功能操作成功。</p>
+<h4 id="（2）内存序"><a href="#（2）内存序" class="headerlink" title="（2）内存序"></a>（2）内存序</h4><p>内存序使用的是 <code>memory_order_relaxed</code>，内存序（Memory Order）是多线程编程中的一个关键概念，它决定了在多线程环境中，如何保证内存操作的可见性和顺序性。在原子操作中，内存序用于指定操作的内存模型，以确保线程间的同步和数据一致性。C11 和 C++11 标准中定义了几种不同的内存序，<code>memory_order_relaxed</code> 是其中之一。</p>
+<p><strong>内存序主要有 6 种类型：</strong></p>
+<ul>
+<li><code>memory_order_relaxed</code><ul>
+<li>特点：不对其他内存操作施加顺序上的约束，即不保证操作的可见性和顺序性。</li>
+<li>用途：适用于不需要同步的情况，只需要保证原子性。<ul>
+<li>例如，计数器的递增操作。</li>
+</ul>
+</li>
+<li>性能：因为没有同步开销，通常具有较高的性能。</li>
+</ul>
+</li>
+<li><code>memory_order_consume</code><ul>
+<li>特点：确保依赖于加载结果的操作在加载之后执行。</li>
+<li>用途：适用于需要依赖关系但不需要严格顺序的情况。</li>
+</ul>
+</li>
+<li><code>memory_order_acquire</code><ul>
+<li>特点：保证在此操作之后的读写不会被重排到此操作之前。</li>
+<li>用途：用于加载操作，确保获取到最新的值。</li>
+</ul>
+</li>
+<li><code>memory_order_release</code><ul>
+<li>特点：保证在此操作之前的读写不会被重排到此操作之后。</li>
+<li>用途：用于存储操作，确保对其他线程可见。</li>
+</ul>
+</li>
+<li><code>memory_order_acq_rel</code><ul>
+<li>特点：结合了 acquire 和 release 的特性。</li>
+<li>用途：用于读-改-写操作，确保读写的顺序。</li>
+</ul>
+</li>
+<li><code>memory_order_seq_cst</code><ul>
+<li>特点：提供最强的顺序保证，所有操作按全局顺序执行。</li>
+<li>用途：适用于需要严格顺序的场合，通常性能较低。</li>
+</ul>
+</li>
+</ul>
+<p>接下来，通过一个示例看下 <code>memory_order_relaxed</code> 的作用。</p>
+<p>下面是一个计数器的示例：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NUM_THREADS 4</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NUM_INCREMENTS 1000000</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> counter = <span class="number">0</span>; <span class="comment">// 共享计数器</span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span>* <span class="title function_">increment_counter</span><span class="params">(<span class="type">void</span>* arg)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_INCREMENTS; ++i) &#123;</span><br><span class="line">        counter++; <span class="comment">// 非原子操作，存在数据竞争</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">pthread_t</span> threads[NUM_THREADS];</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建多个线程来同时增加计数器</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_THREADS; ++i) &#123;</span><br><span class="line">        pthread_create(&amp;threads[i], <span class="literal">NULL</span>, increment_counter, <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待所有线程完成</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_THREADS; ++i) &#123;</span><br><span class="line">        pthread_join(threads[i], <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;counter = %d\n&quot;</span>, counter);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述的主要逻辑是 4 个线程同时对一个共享的计数器 <code>counter</code> 进行递增操作。每个线程都会在一个循环中执行 <code>1000000</code> 次的 <code>counter++</code> 操作。</p>
+<p>符合预期的结果，运行结束 <code>counter</code> 应该等于 <code>4000000</code>，但实际上述代码每次运行结束 <code>counter</code> 结果都不相同：<br><img src="/images/lix_blog_133.png" alt="upload successful"></p>
+<p>主要原因是 <code>counter++</code> 不是原子操作，多个线程同时修改 <code>counter</code> 会导致数据竞争，最终结果可能小于预期。</p>
+<p>使用 <code>memory_order_relaxed</code> 可以解决问题：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdatomic.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NUM_THREADS 4</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NUM_INCREMENTS 1000000</span></span><br><span class="line"></span><br><span class="line"><span class="type">atomic_int</span> counter = <span class="number">0</span>; <span class="comment">// 原子计数器</span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span>* <span class="title function_">increment_counter</span><span class="params">(<span class="type">void</span>* arg)</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_INCREMENTS; ++i) &#123;</span><br><span class="line">        atomic_fetch_add_explicit(&amp;counter, <span class="number">1</span>, memory_order_relaxed);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">pthread_t</span> threads[NUM_THREADS];</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建多个线程来同时增加计数器</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_THREADS; ++i) &#123;</span><br><span class="line">        pthread_create(&amp;threads[i], <span class="literal">NULL</span>, increment_counter, <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 等待所有线程完成</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; NUM_THREADS; ++i) &#123;</span><br><span class="line">        pthread_join(threads[i], <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">&quot;counter = %d\n&quot;</span>, counter);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上述使用 <code>memory_order_relaxed</code> 的示例中，无论运行多少次，都可以确保 <code>counter</code> 的值都是符合预期的。</p>
+<p><code>memory_order_relaxed</code> 保证了原子性，但不提供同步保证（即不强制其他线程立即看到更新），这意味着即使一个线程已经完成了对某个变量的更新，其他线程可能不会立即看到这个更新。由于没有同步开销，所以具有较高的性能，非常适合用于性能敏感的场景。</p>
+<h4 id="（3）-dispatch-lock-value-for-self"><a href="#（3）-dispatch-lock-value-for-self" class="headerlink" title="（3）_dispatch_lock_value_for_self()"></a>（3）_dispatch_lock_value_for_self()</h4><p>其中，新值使用的是 <code>_dispatch_lock_value_for_self()</code>，其实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 获取当前线程的唯一标识符</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_tid_self()        ((dispatch_tid)_dispatch_thread_port())</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取线程端口</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_thread_port() pthread_mach_thread_np(_dispatch_thread_self())</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取当前线程的标识符</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_thread_self() ((uintptr_t)pthread_self())</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// mach_port_t 类型为 uint32_t，用于表示 Mach 端口</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">uint32_t</span> <span class="type">mach_port_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// dispatch_tid 类型为 mach_port_t，用于表示线程标识符</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">mach_port_t</span> dispatch_tid;</span><br><span class="line"></span><br><span class="line"><span class="comment">// dispatch_lock 类型为 uint32_t，用于表示锁</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">uint32_t</span> dispatch_lock;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 用于掩码操作的常量，DLOCK_OWNER_MASK 用于提取锁所有者的标识部分</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> DLOCK_OWNER_MASK            ((dispatch_lock)0xfffffffc)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取当前线程的锁值</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> dispatch_lock</span><br><span class="line">_dispatch_lock_value_for_self(<span class="type">void</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 获取当前线程的标识符，并转换为锁值</span></span><br><span class="line">    <span class="keyword">return</span> _dispatch_lock_value_from_tid(_dispatch_tid_self());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 将线程标识符转换为锁值</span></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> dispatch_lock</span><br><span class="line">_dispatch_lock_value_from_tid(dispatch_tid tid)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 与 DLOCK_OWNER_MASK 进行按位与操作，提取出线程标识符中用于锁定的部分</span></span><br><span class="line">    <span class="keyword">return</span> tid &amp; DLOCK_OWNER_MASK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_dispatch_lock_value_for_self</code> 用于获取当前线程的“锁值”，这个“锁值”用于标识当前线程在锁机制中的身份。</p>
+<p><code>_dispatch_lock_value_for_self</code> 核心逻辑是通过一系列的宏和内联函数获取当前线程的唯一标识符 <code>tid</code>，再将线程标识符 <code>tid</code> 与 <code>DLOCK_OWNER_MASK</code> 进行按位与操作，生成最终的“锁值”。</p>
+<h4 id="（4）总结-dispatch-once-gate-tryenter"><a href="#（4）总结-dispatch-once-gate-tryenter" class="headerlink" title="（4）总结 _dispatch_once_gate_tryenter"></a>（4）总结 _dispatch_once_gate_tryenter</h4><p>根据前面内容对 <code>_dispatch_once_gate_tryenter</code> 总结如下：</p>
+<ul>
+<li>该函数只有一个参数 <code>dispatch_once_gate_t l</code>：它是指向 <code>dispatch_once_gate_s</code> 结构的指针。</li>
+<li>该函数调用 <code>os_atomic_cmpxchg</code> 宏，执行原子比较并交换操作，<code>os_atomic_cmpxchg</code> 宏展开后，实际调用的是前面提到的 <code>atomic_compare_exchange_strong_explicit</code> 函数。</li>
+<li>总结该函数核心逻辑如下：<ul>
+<li>如果 <code>&amp;l-&gt;dgo_once</code> 等于 <code>DLOCK_ONCE_UNLOCKED</code>，则将其更新为当前线程的锁值，并返回 <code>true</code>，表示当前线程可以进入一次性初始化的代码块。<ul>
+<li>获取当前线程的唯一标识符 <code>tid</code>，再将线程标识符 <code>tid</code> 与 <code>DLOCK_OWNER_MASK</code> 进行按位与操作，生成最终的“锁值”。</li>
+<li>返回 <code>true</code> 将调用 <code>_dispatch_once_callout(l, ctxt, func)</code>;</li>
+</ul>
+</li>
+<li>如果 <code>&amp;l-&gt;dgo_once</code> 的值已经被其他线程修改（即不等于 <code>DLOCK_ONCE_UNLOCKED</code>），则返回 <code>false</code>，表示其他线程可能正在执行该代码块。<ul>
+<li>返回 <code>false</code> 将调用 <code>_dispatch_once_wait(l)</code>。</li>
+</ul>
+</li>
+<li>使用的内存序是 <code>memory_order_relaxed</code>，即**多个线程可以并发执行，但最终只会有一个线程执行成功并返回 <code>true</code>**。</li>
+</ul>
+</li>
+</ul>
+<p>从 <code>dispatch_once_f</code> 实现：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line"><span class="title function_">dispatch_once_f</span><span class="params">(<span class="type">dispatch_once_t</span> *val, <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">dispatch_once_gate_t</span> l = (<span class="type">dispatch_once_gate_t</span>)val;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_dispatch_once_gate_tryenter(l)) &#123;</span><br><span class="line">        <span class="keyword">return</span> _dispatch_once_callout(l, ctxt, func);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> _dispatch_once_wait(l);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以知道，<code>_dispatch_once_gate_tryenter</code> 主要逻辑是判断进入一次性代码块，还是等待。</p>
+<p>接下来看下代码块执行逻辑 <code>_dispatch_once_callout</code> 和  <code>_dispatch_once_wait</code> 的源码实现。</p>
+<h3 id="4、-dispatch-once-callout"><a href="#4、-dispatch-once-callout" class="headerlink" title="4、_dispatch_once_callout"></a>4、_dispatch_once_callout</h3><p><code>_dispatch_once_callout</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_once_callout(<span class="type">dispatch_once_gate_t</span> l, <span class="type">void</span> *ctxt,</span><br><span class="line">                <span class="type">dispatch_function_t</span> func)</span><br><span class="line">&#123;</span><br><span class="line">        _dispatch_client_callout(ctxt, func);</span><br><span class="line">        _dispatch_once_gate_broadcast(l);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该函数内部，调用了 <code>_dispatch_client_callout</code>、<code>_dispatch_once_gate_broadcast</code> 两个函数。</p>
+<h4 id="（1）-dispatch-client-callout"><a href="#（1）-dispatch-client-callout" class="headerlink" title="（1）_dispatch_client_callout"></a>（1）_dispatch_client_callout</h4><p><code>_dispatch_client_callout</code> 源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// On platforms with SjLj exceptions, avoid the SjLj overhead on every callout</span></span><br><span class="line"><span class="comment">// by clearing the unwinder&#x27;s TSD pointer to the handler stack around callouts</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_get_tsd_base()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_get_unwind_tsd() (NULL)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_set_unwind_tsd(u) do &#123;(void)(u);&#125; while (0)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _dispatch_free_unwind_tsd()</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> likely(x) __builtin_expect(!!(x), 1)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> unlikely(x) __builtin_expect(!!(x), 0)</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="type">void</span></span><br><span class="line">_dispatch_client_callout(<span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> f)</span><br><span class="line">&#123;</span><br><span class="line">	_dispatch_get_tsd_base();</span><br><span class="line">	<span class="type">void</span> *u = _dispatch_get_unwind_tsd();</span><br><span class="line">	<span class="keyword">if</span> (likely(!u)) <span class="keyword">return</span> f(ctxt);</span><br><span class="line">	_dispatch_set_unwind_tsd(<span class="literal">NULL</span>);</span><br><span class="line">	f(ctxt);</span><br><span class="line">	_dispatch_free_unwind_tsd();</span><br><span class="line">	_dispatch_set_unwind_tsd(u);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，<code>_dispatch_client_callout</code> 中核心逻辑主要是涉及到一系列 <code>tsd</code> 相关宏的调用，以及执行具体 <code>block</code>。</p>
+<p>在该函数执行的宏定义中可以看到，这些宏实际上都是 <code>NOOPs</code>（无操作指令），可以理解为空的逻辑“没有任何作用”。那这些宏还有什么存在意义呢？</p>
+<p>源码上方的注释给出了解释：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">// On platforms with SjLj exceptions, avoid the SjLj overhead on every callout</span><br><span class="line">// by clearing the unwinder&#x27;s TSD pointer to the handler stack around callouts</span><br></pre></td></tr></table></figure>
+<p>即：在具有 <code>SjLj</code> 异常的平台上，通过在调用过程中清除展开器的 <code>TSD</code> 指针到处理程序堆栈，避免每次调用的 <code>SjLj</code> 开销。</p>
+<p><code>SjLj</code> 是一种异常处理机制，主要用于不支持更高级异常处理的架构。它通过 <code>setjmp</code> 和 <code>longjmp</code> 函数实现异常捕获和跳转。<code>setjmp</code> 用于保存当前的堆栈状态，而 <code>longjmp</code> 用于恢复到之前保存的状态，从而实现异常处理。</p>
+<p>每次调用 <code>setjmp</code> 时，都会有一定的开销，因为需要保存当前的堆栈上下文，包括寄存器状态和程序计数器等。在频繁调用的情况下，这种开销可能会显著影响性能。</p>
+<p>对于现代硬件来说，这种对 <code>TSD</code>（线程安全数据）指针的 <code>SjLj</code>（<code>Setjmp</code>&#x2F;<code>Longjmp</code>）优化是不必要的，这些 <code>NOOPs</code>（无操作指令）是故意而为之。</p>
+<p>所以，可以理解为 <code>_dispatch_client_callout</code> 函数实现就是执行具体 <code>block</code>。</p>
+<h4 id="（2）-dispatch-once-gate-broadcast"><a href="#（2）-dispatch-once-gate-broadcast" class="headerlink" title="（2）_dispatch_once_gate_broadcast"></a>（2）_dispatch_once_gate_broadcast</h4><p><code>_dispatch_once_gate_broadcast</code> 函数主要作用是在完成一次性初始化后，通知可能等待在该初始化完成的其他线程，该函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span></span><br><span class="line">_dispatch_once_gate_broadcast(<span class="type">dispatch_once_gate_t</span> l)</span><br><span class="line">&#123;</span><br><span class="line">	dispatch_lock value_self = _dispatch_lock_value_for_self();</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 调用 _dispatch_once_mark_done(l) 将 dispatch_once 状态标记为完成。</span></span><br><span class="line"><span class="comment">	 这个函数内部使用原子操作将 dgo_once 设置为 DLOCK_ONCE_DONE，表示初始化已经完成。</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="type">uintptr_t</span> v = _dispatch_once_mark_done(l);</span><br><span class="line">	</span><br><span class="line">	<span class="comment">// 其他线程相关检查</span></span><br><span class="line">	<span class="keyword">if</span> (likely((dispatch_lock)v == value_self)) <span class="keyword">return</span>;</span><br><span class="line">	_dispatch_gate_broadcast_slow(&amp;l-&gt;dgo_gate, (dispatch_lock)v);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中 <code>_dispatch_once_mark_done</code> 函数实现逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">uintptr_t</span></span><br><span class="line">_dispatch_once_mark_done(<span class="type">dispatch_once_gate_t</span> dgo)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> os_atomic_xchg(&amp;dgo-&gt;dgo_once, DLOCK_ONCE_DONE, release);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>_dispatch_once_gate_broadcast</code> 函数关键逻辑是<strong>在 <code>_dispatch_client_callout</code> 执行完 <code>dispatch_once</code> 具体 <code>block</code> 后，使用原子操作将 <code>dgo_once</code> 设置为 <code>DLOCK_ONCE_DONE</code>（记住这个操作，非常重要）</strong>。</p>
+<h3 id="5、-dispatch-once-wait"><a href="#5、-dispatch-once-wait" class="headerlink" title="5、_dispatch_once_wait"></a>5、_dispatch_once_wait</h3><p>再回头看下 <code>dispatch_once_f</code> 实现：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line"><span class="title function_">dispatch_once_f</span><span class="params">(<span class="type">dispatch_once_t</span> *val, <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func)</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">dispatch_once_gate_t</span> l = (<span class="type">dispatch_once_gate_t</span>)val;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_dispatch_once_gate_tryenter(l)) &#123;</span><br><span class="line">        <span class="keyword">return</span> _dispatch_once_callout(l, ctxt, func);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> _dispatch_once_wait(l);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据前述内容可知，<code>_dispatch_once_gate_tryenter</code> 返回 <code>false</code>，则代表当前的这次调用没有获得 <code>dispatch_once</code> 的 <code>block</code> 执行权，则调用 <code>_dispatch_once_wait</code> 函数进入等待逻辑。</p>
+<p><code>_dispatch_once_wait</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_dispatch_once_wait(<span class="type">dispatch_once_gate_t</span> dgo)</span><br><span class="line">&#123;</span><br><span class="line">    dispatch_lock self = _dispatch_lock_value_for_self();</span><br><span class="line">    <span class="type">uintptr_t</span> old_v, new_v;</span><br><span class="line">    <span class="type">uint32_t</span> timeout = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">        os_atomic_rmw_loop(&amp;dgo-&gt;dgo_once, old_v, new_v, relaxed, &#123;</span><br><span class="line">            <span class="keyword">if</span> (likely(old_v == DLOCK_ONCE_DONE)) &#123;</span><br><span class="line">                os_atomic_rmw_loop_give_up(<span class="keyword">return</span>);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            new_v = old_v | (<span class="type">uintptr_t</span>)DLOCK_WAITERS_BIT;</span><br><span class="line">            <span class="keyword">if</span> (new_v == old_v) os_atomic_rmw_loop_give_up(<span class="keyword">break</span>);</span><br><span class="line">        &#125;);</span><br><span class="line">        </span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> (unlikely(_dispatch_lock_is_locked_by((dispatch_lock)old_v, self))) &#123;</span><br><span class="line">            DISPATCH_CLIENT_CRASH(<span class="number">0</span>, <span class="string">&quot;trying to lock recursively&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        _dispatch_thread_switch(new_v, <span class="number">0</span>, timeout++);</span><br><span class="line">        (<span class="type">void</span>)timeout;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该函数中包含一系列宏定义，将该函数完全展开后逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_dispatch_once_wait(<span class="type">dispatch_once_gate_t</span> dgo)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 获取当前线程的锁值，用于标识当前线程</span></span><br><span class="line">    dispatch_lock self = _dispatch_lock_value_for_self();</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 定义两个变量用于存储旧值和新值</span></span><br><span class="line">    <span class="type">uintptr_t</span> old_v, new_v;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 初始化超时计数器，初始值为1</span></span><br><span class="line">    <span class="type">uint32_t</span> timeout = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 进入一个无限循环，直到条件满足退出</span></span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">        <span class="comment">// 原子读-修改-写循环，尝试更新 dgo_once 的状态</span></span><br><span class="line">        <span class="type">bool</span> _result = <span class="literal">false</span>;</span><br><span class="line">        __typeof__(&amp;dgo-&gt;dgo_once) _p = (&amp;dgo-&gt;dgo_once);</span><br><span class="line">        old_v = os_atomic_load(_p, relaxed);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">do</span> &#123;</span><br><span class="line">            <span class="comment">// 如果状态已经是 DLOCK_ONCE_DONE，表示初始化已完成，直接返回，函数执行结束</span></span><br><span class="line">            <span class="keyword">if</span> (likely(old_v == DLOCK_ONCE_DONE)) &#123;</span><br><span class="line">                os_atomic_thread_fence(relaxed);</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 设置等待者标志，表示当前线程在等待</span></span><br><span class="line">            new_v = old_v | (<span class="type">uintptr_t</span>)DLOCK_WAITERS_BIT;</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 如果新旧值相同，说明已经被其他线程(或自己)设置成等待状态了，退出当前 do while 循环</span></span><br><span class="line">            <span class="keyword">if</span> (new_v == old_v) &#123;</span><br><span class="line">                os_atomic_thread_fence(relaxed);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            <span class="comment">// 尝试将 old_v 替换为 new_v</span></span><br><span class="line">            _result = atomic_compare_exchange_weak_explicit(</span><br><span class="line">                _os_atomic_c11_atomic(_p), &amp;old_v, new_v, </span><br><span class="line">                memory_order_relaxed, memory_order_relaxed);</span><br><span class="line">        &#125; <span class="keyword">while</span> (unlikely(!_result));</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 检查当前线程是否已经持有锁，避免递归锁定</span></span><br><span class="line">        <span class="keyword">if</span> (unlikely(_dispatch_lock_is_locked_by((dispatch_lock)old_v, self))) &#123;</span><br><span class="line">            DISPATCH_CLIENT_CRASH(<span class="number">0</span>, <span class="string">&quot;trying to lock recursively&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 进行线程切换，允许其他线程执行</span></span><br><span class="line">        _dispatch_thread_switch(new_v, <span class="number">0</span>, timeout++);</span><br><span class="line">        (<span class="type">void</span>)timeout;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中，<code>_dispatch_thread_switch</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="type">kern_return_t</span> <span class="title function_">thread_switch</span><span class="params">(</span></span><br><span class="line"><span class="params">    <span class="type">mach_port_name_t</span> thread_name,</span></span><br><span class="line"><span class="params">    <span class="type">int</span> option,</span></span><br><span class="line"><span class="params">    <span class="type">mach_msg_timeout_t</span> option_time)</span>;</span><br><span class="line">    </span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span></span><br><span class="line">_dispatch_thread_switch(dispatch_lock value, <span class="type">dispatch_lock_options_t</span> flags,</span><br><span class="line">        <span class="type">uint32_t</span> timeout)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> option;</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; DLOCK_LOCK_DATA_CONTENTION) &#123;</span><br><span class="line">        option = SWITCH_OPTION_OSLOCK_DEPRESS;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        option = SWITCH_OPTION_DEPRESS;</span><br><span class="line">    &#125;</span><br><span class="line">    thread_switch(_dispatch_lock_owner(value), option, timeout);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_dispatch_thread_switch</code> 函数，主要是对 <code>thread_switch</code> 函数的调用，<code>thread_switch</code> 函数是一个系统调用，用于在多线程环境中进行线程调度切换。当一个线程在等待某个资源（如锁）时，直接进行忙等待会浪费 CPU 资源。<code>thread_switch</code> 允许线程主动让出 CPU，使得其他线程可以被调度执行。</p>
+<p>当一个线程调用 <code>thread_switch</code> 时，该线程会被挂起一段时间（由 <code>option_time</code> 参数指定，单位毫秒），在此期间，操作系统可以调度其他线程运行。</p>
+<p><code>_dispatch_once_wait</code> 中对 <code>thread_switch</code> 调用，第一次调用 <code>option_time</code> 传的值是 <code>1</code> 毫秒，即当前线程挂起 <code>1</code> 毫秒让出 CPU 资源给其他线程调用。下次时候 <code>option_time ++</code>，传入的是 <code>2</code> 毫秒，再挂起 <code>2</code> 毫秒，依次递增挂起时长……</p>
+<p>总结  <code>_dispatch_once_wait</code> 函数核心逻辑是：</p>
+<ul>
+<li>无限 <code>for</code> 循环，检测 <code>dgo_once</code> 是否为 <code>DLOCK_ONCE_DONE</code>。<ul>
+<li>如果是，代表 <code>dispatch_once</code> 的 <code>block</code> 执行完毕，无需再等待，终止 <code>for</code> 循环，该函数执行结束。</li>
+<li>如果不是，代表 <code>dispatch_once</code> 的 <code>block</code> 没有执行完毕，将 <code>dgo_once</code> 设置为 <code>dgo_once | DLOCK_WAITERS_BIT</code>，继续 <code>for</code> 循环检测，直到 <code>dgo_once</code> 变成 <code>DLOCK_ONCE_DONE</code>。<ul>
+<li>无限 <code>for</code> 循环期间，通过 <code>thread_switch</code> 系统调用，使当前线程挂起，让出 CPU 资源给其他线程。挂起时长从 1毫秒开始，每次调用 <code>thread_switch</code> 递增 1 毫秒。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="6、总结"><a href="#6、总结" class="headerlink" title="6、总结"></a>6、总结</h3><p>根据前述 <code>dispatch_once</code> 源码，可以用下图表示其实现逻辑：<br><img src="/images/lix_blog_217.png" alt="upload successful"></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/62814/">
+        <span class="nav-arrow">← </span>
+        
+          热修复之 MangoFix 实现原理
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/12465/">
+        
+          GCD 底层原理 2 - dispatch_queue
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/33519/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

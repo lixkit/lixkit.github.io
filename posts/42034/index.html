@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、概述dispatch_sync 用于将一个任务同步地提交到指定的调度队列，并等待该任务完成后才返回。调用者线程会被阻塞，直到任务执行完毕。dispatch_sync 在需要确保任务在某个队列上按顺序执行，前一个任务完成之前，后续任务不会执行。 dispatch_sync 特点：  不会开启新线程 dispatch_sync 在调用时，不会创建新的线程来执行任务。它会在指定的队列上同步地执行任务">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GCD 底层原理 3 - dispatch_sync">
+<meta property="og:url" content="https://www.lixkit.com/posts/42034/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、概述dispatch_sync 用于将一个任务同步地提交到指定的调度队列，并等待该任务完成后才返回。调用者线程会被阻塞，直到任务执行完毕。dispatch_sync 在需要确保任务在某个队列上按顺序执行，前一个任务完成之前，后续任务不会执行。 dispatch_sync 特点：  不会开启新线程 dispatch_sync 在调用时，不会创建新的线程来执行任务。它会在指定的队列上同步地执行任务">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_220.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_221.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_222.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_223.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_224.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_225.png">
+<meta property="article:published_time" content="2022-11-12T08:24:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.900Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_220.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      GCD 底层原理 3 - dispatch_sync | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>GCD 底层原理 3 - dispatch_sync</h2>
+  <p class="post-date">2022-11-12</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、概述"><a href="#一、概述" class="headerlink" title="一、概述"></a>一、概述</h2><p><code>dispatch_sync</code> 用于将一个任务同步地提交到指定的调度队列，并等待该任务完成后才返回。调用者线程会被阻塞，直到任务执行完毕。<code>dispatch_sync</code> 在需要确保任务在某个队列上按顺序执行，前一个任务完成之前，后续任务不会执行。</p>
+<p><code>dispatch_sync</code> 特点：</p>
+<ul>
+<li><strong>不会开启新线程</strong><ul>
+<li><code>dispatch_sync</code> 在调用时，不会创建新的线程来执行任务。它会在指定的队列上同步地执行任务。</li>
+</ul>
+</li>
+<li><strong>按照顺序执行</strong><ul>
+<li><strong>串行队列</strong><ul>
+<li>在串行队列上，<code>dispatch_sync</code> 提交的任务会按照队列中的顺序依次执行，确保任务之间的顺序性。</li>
+</ul>
+</li>
+<li><strong>并发队列</strong><ul>
+<li>同一个线程使用 <code>dispatch_sync</code> 往并发队列提交任务，任务会按照提交顺序执行，因为每个调用会阻塞调用线程，直到当前任务完成。</li>
+<li>不同线程使用 <code>dispatch_sync</code> 往同一并发队列提交任务，任务的执行顺序是不可预测的，因为并发队列会并行处理任务，具体顺序取决于系统调度。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p><strong>使用示例：</strong></p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">dispatch_queue_t</span> queue = dispatch_queue_create(<span class="string">&quot;com.lixkit.serialQueue&quot;</span>, DISPATCH_QUEUE_SERIAL);</span><br><span class="line"><span class="built_in">dispatch_sync</span>(queue, ^&#123;</span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<h2 id="二、dispatch-sync"><a href="#二、dispatch-sync" class="headerlink" title="二、dispatch_sync"></a>二、dispatch_sync</h2><p><code>dispatch_sync</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">dispatch_sync</span><span class="params">(<span class="type">dispatch_queue_t</span> dq, <span class="type">dispatch_block_t</span> work)</span> &#123;</span><br><span class="line">    <span class="type">uintptr_t</span> dc_flags = DC_FLAG_BLOCK; <span class="comment">// 初始化标志变量 dc_flags，表示任务是一个 Block</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查任务是否包含私有数据</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(_dispatch_block_has_private_data(work))) &#123;</span><br><span class="line">        <span class="comment">// 如果任务包含私有数据，调用 _dispatch_sync_block_with_privdata 处理</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_block_with_privdata(dq, work, dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果任务不包含私有数据，调用 _dispatch_sync_f 同步执行任务</span></span><br><span class="line">    _dispatch_sync_f(dq, work, _dispatch_Block_invoke(work), dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述逻辑中，先判断传入的 <code>block</code> 是否包含私有数据，当我们通过前面的示例方式调用 <code>dispatch_sync</code>，传入的 <code>block</code> 是不包含私有数据的。当传入的 <code>block</code> 是通过下面方式创建的时候，<code>block</code> 中才会包含私有数据：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dispatch_block_t block = dispatch_block_create(<span class="number">0</span>, ^&#123;</span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p><code>dispatch_block_create</code> 用于创建一个带有附加控制信息的 <code>Block</code>，这些附加信息可以包括优先级、屏障标志、凭证等。例如，<code>dispatch_block_create</code> 的第 1 个参数传 <code>DISPATCH_BLOCK_BARRIER</code>，可以创建一个屏障 <code>Block</code>。在并发队列中，屏障 <code>Block</code> 可以确保在其前面的任务完成后才开始执行，并在其后面的任务开始之前完成。例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">dispatch_block_t block = dispatch_block_create(DISPATCH_BLOCK_BARRIER, ^&#123;</span><br><span class="line">    <span class="comment">// 执行一些需要屏障的操作</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 提交到队列</span></span><br><span class="line"><span class="built_in">dispatch_async</span>(queue, block);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 可以在需要时取消</span></span><br><span class="line">dispatch_block_cancel(block);</span><br></pre></td></tr></table></figure>
+<p>关于 <code>dispatch_block_create</code> 不是本次源码分析的重点，这里不再深究。也就是说，我们常规使用 <code>dispatch_sync</code> 执行串行、并发队列时，实际会调用 <code>_dispatch_sync_f</code> 函数。</p>
+<h2 id="三、-dispatch-sync-f"><a href="#三、-dispatch-sync-f" class="headerlink" title="三、_dispatch_sync_f"></a>三、_dispatch_sync_f</h2><p><code>_dispatch_sync_f</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_f(<span class="type">dispatch_queue_t</span> dq, <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func,</span><br><span class="line">        <span class="type">uintptr_t</span> dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">    _dispatch_sync_f_inline(dq, ctxt, func, dc_flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> _dispatch_sync_f_inline(<span class="type">dispatch_queue_t</span> dq, <span class="type">void</span> *ctxt,</span><br><span class="line">                                           <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> dc_flags) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果队列的宽度为 1（串行队列的 dq_width 为 1）</span></span><br><span class="line">    <span class="keyword">if</span> (likely(dq-&gt;dq_width == <span class="number">1</span>)) &#123;</span><br><span class="line">        <span class="comment">// 1、串行队列执行逻辑</span></span><br><span class="line">        <span class="comment">// 对于串行队列，调用 _dispatch_barrier_sync_f 执行任务</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_barrier_sync_f(dq, ctxt, func, dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2、并发队列执行逻辑</span></span><br><span class="line">    <span class="comment">// 检查队列的类型是否是 _DISPATCH_LANE_TYPE</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(dx_metatype(dq) != _DISPATCH_LANE_TYPE)) &#123;</span><br><span class="line">        <span class="comment">// 如果队列类型不支持 dispatch_sync，触发崩溃</span></span><br><span class="line">        DISPATCH_CLIENT_CRASH(<span class="number">0</span>, <span class="string">&quot;Queue type doesn&#x27;t support dispatch_sync&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 将调度队列转换为 dispatch_lane_t 类型</span></span><br><span class="line">    <span class="type">dispatch_lane_t</span> dl = upcast(dq)._dl;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 全局并发队列和绑定到非调度线程的队列总是进入慢速路径</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(!_dispatch_queue_try_reserve_sync_width(dl))) &#123;</span><br><span class="line">        <span class="comment">// 如果无法保留同步宽度，调用 _dispatch_sync_f_slow 处理</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_f_slow(dl, ctxt, func, <span class="number">0</span>, dl, dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果目标队列存在目标队列，表示递归目标队列</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(dq-&gt;do_targetq-&gt;do_targetq)) &#123;</span><br><span class="line">        <span class="comment">// 调用 _dispatch_sync_recurse 递归处理</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_recurse(dl, ctxt, func, dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 开始同步调度任务的内省</span></span><br><span class="line">    _dispatch_introspection_sync_begin(dl);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 同步调用并完成任务</span></span><br><span class="line">    _dispatch_sync_invoke_and_complete(dl, ctxt, func DISPATCH_TRACE_ARG(</span><br><span class="line">        _dispatch_trace_item_sync_push_pop(dq, ctxt, func, dc_flags)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里需要分成两部分看：串行队列执行逻辑、并发队列执行逻辑。</p>
+<p>在前面分析 dispatch_queue_create 的源码时候就已经知道：</p>
+<ul>
+<li>创建串行队列时，<code>dq_width = 1</code></li>
+<li>创建并发队列时，<code>dq_width = 4094</code></li>
+</ul>
+<p>所以对于串行队列，会进入 <code>_dispatch_barrier_sync_f</code> 函数的执行逻辑，并发队列走剩余的逻辑。</p>
+<h2 id="四、-dispatch-barrier-sync-f"><a href="#四、-dispatch-barrier-sync-f" class="headerlink" title="四、_dispatch_barrier_sync_f"></a>四、_dispatch_barrier_sync_f</h2><p>根据前面源码可知，对于串行队列，会通过 <code>likely(dq-&gt;dq_width == 1)</code> 的判断，进入 <code>_dispatch_barrier_sync_f</code> 函数的执行逻辑。</p>
+<p><code>_dispatch_barrier_sync_f</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_barrier_sync_f(<span class="type">dispatch_queue_t</span> dq, <span class="type">void</span> *ctxt,</span><br><span class="line">        <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">    _dispatch_barrier_sync_f_inline(dq, ctxt, func, dc_flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> _dispatch_barrier_sync_f_inline(<span class="type">dispatch_queue_t</span> dq, <span class="type">void</span> *ctxt,</span><br><span class="line">                                                   <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> dc_flags) &#123;</span><br><span class="line">    <span class="comment">// 获取当前线程的线程 ID</span></span><br><span class="line">    dispatch_tid tid = _dispatch_tid_self();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查队列的类型是否是 _DISPATCH_LANE_TYPE</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(dx_metatype(dq) != _DISPATCH_LANE_TYPE)) &#123;</span><br><span class="line">        <span class="comment">// 如果队列类型不支持 dispatch_sync，触发崩溃</span></span><br><span class="line">        DISPATCH_CLIENT_CRASH(<span class="number">0</span>, <span class="string">&quot;Queue type doesn&#x27;t support dispatch_sync&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 将调度队列转换为 dispatch_lane_t 类型</span></span><br><span class="line">    <span class="type">dispatch_lane_t</span> dl = upcast(dq)._dl;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 尝试获取屏障锁</span></span><br><span class="line">    <span class="comment">// 更正确的做法是将刚刚获取屏障锁的线程的 QoS 合并到队列状态中。</span></span><br><span class="line">    <span class="comment">// 但是这对于快速路径来说太昂贵了，所以跳过它。</span></span><br><span class="line">    <span class="comment">// 所选择的折衷是，如果较低优先级线程上的入队与此快速路径争用，</span></span><br><span class="line">    <span class="comment">// 该线程可能会收到无用的覆盖。</span></span><br><span class="line">    <span class="comment">//</span></span><br><span class="line">    <span class="comment">// 全局并发队列和绑定到非调度线程的队列总是进入慢速路径，</span></span><br><span class="line">    <span class="comment">// 参见 DISPATCH_ROOT_QUEUE_STATE_INIT_VALUE</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(!_dispatch_queue_try_acquire_barrier_sync(dl, tid))) &#123;</span><br><span class="line">        <span class="comment">// 获取屏障锁失败，调用 _dispatch_sync_f_slow 处理</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_f_slow(dl, ctxt, func, DC_FLAG_BARRIER, dl,</span><br><span class="line">                                     DC_FLAG_BARRIER | dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取屏障锁成功，继续执行</span></span><br><span class="line">    <span class="comment">// 如果目标队列也存在目标队列，表示需要递归目标队列</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(dl-&gt;do_targetq-&gt;do_targetq)) &#123;</span><br><span class="line">        <span class="comment">// 调用 _dispatch_sync_recurse 递归处理，并返回</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_recurse(dl, ctxt, func,</span><br><span class="line">                                      DC_FLAG_BARRIER | dc_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 开始同步调度任务的内省，这一步主要是用于记录日志和调试</span></span><br><span class="line">    _dispatch_introspection_sync_begin(dl);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 执行任务，并重置 dq_state、唤醒线程</span></span><br><span class="line">    _dispatch_lane_barrier_sync_invoke_and_complete(dl, ctxt, func</span><br><span class="line">                                                    DISPATCH_TRACE_ARG(_dispatch_trace_item_sync_push_pop(</span><br><span class="line">                                                        dq, ctxt, func, dc_flags | DC_FLAG_BARRIER)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述核心逻辑如下：</p>
+<ul>
+<li><strong>获取屏障锁</strong><ul>
+<li>屏障锁用于确保在执行任务时，队列中的其他任务不会同时执行。</li>
+<li>获取屏障锁成功：意味着当前队列空闲，可以执行任务。</li>
+<li>获取屏障锁失败：意味着当前队列非空闲，正在执行其他任务。<ul>
+<li>此时会执行 <code>_dispatch_sync_f_slow</code> 函数。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>递归目标队列（如果有必要）</strong></li>
+<li><strong>执行任务，并重置 <code>dq_state</code>、唤醒线程</strong></li>
+</ul>
+<p>接下来，通过源码详细看下各部分逻辑。</p>
+<h3 id="1、获取屏障锁"><a href="#1、获取屏障锁" class="headerlink" title="1、获取屏障锁"></a>1、获取屏障锁</h3><p>获取屏障锁逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 尝试获取屏障锁</span></span><br><span class="line"><span class="keyword">if</span> (unlikely(!_dispatch_queue_try_acquire_barrier_sync(dl, tid))) &#123;</span><br><span class="line">    <span class="comment">// 如果无法获取屏障锁，表示队列非空闲，调用 _dispatch_sync_f_slow 处理，并返回</span></span><br><span class="line">    <span class="keyword">return</span> _dispatch_sync_f_slow(dl, ctxt, func, DC_FLAG_BARRIER, dl,</span><br><span class="line">                                 DC_FLAG_BARRIER | dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>获取屏障锁调用的是 <code>_dispatch_queue_try_acquire_barrier_sync</code> 函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dispatch_queue_try_acquire_barrier_sync(<span class="type">dispatch_queue_class_t</span> dq, <span class="type">uint32_t</span> tid)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> _dispatch_queue_try_acquire_barrier_sync_and_suspend(dq._dl, tid, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其内部调用的  <code>_dispatch_queue_try_acquire_barrier_sync_and_suspend</code> 函数，内部涉及到一系列宏定义，将该函数完全展开后逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dispatch_queue_try_acquire_barrier_sync_and_suspend(<span class="type">dispatch_lane_t</span> dq,</span><br><span class="line">        <span class="type">uint32_t</span> tid, <span class="type">uint64_t</span> suspend_count)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 计算队列的初始状态值，基于队列的宽度</span></span><br><span class="line">    <span class="type">uint64_t</span> init  = DISPATCH_QUEUE_STATE_INIT_VALUE(dq-&gt;dq_width);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 计算新的状态值，组合了多个标志位和信息</span></span><br><span class="line">    <span class="type">uint64_t</span> value = DISPATCH_QUEUE_WIDTH_FULL_BIT | DISPATCH_QUEUE_IN_BARRIER |</span><br><span class="line">            _dispatch_lock_value_from_tid(tid) | <span class="comment">// 从线程 ID 生成锁值</span></span><br><span class="line">            DISPATCH_QUEUE_UNCONTENDED_SYNC |    <span class="comment">// 表示同步操作未被争用</span></span><br><span class="line">            (suspend_count * DISPATCH_QUEUE_SUSPEND_INTERVAL); <span class="comment">// 根据挂起计数计算状态增量</span></span><br><span class="line"></span><br><span class="line">    <span class="type">uint64_t</span> old_state, new_state; </span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用原子操作循环尝试更新队列状态</span></span><br><span class="line">    <span class="type">bool</span> _result = <span class="literal">false</span>; </span><br><span class="line">    <span class="comment">// 定义 _p 为指向 dq_state 字段的指针</span></span><br><span class="line">    __typeof__(&amp;(dq)-&gt;dq_state) _p = &amp;(dq)-&gt;dq_state;  </span><br><span class="line">    <span class="comment">// 使用原子加载操作读取当前字段的值，并保存到 old_state 中</span></span><br><span class="line">    old_state = os_atomic_load(_p, relaxed);  </span><br><span class="line"></span><br><span class="line">    <span class="keyword">do</span> &#123;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 从 dq_state 中取出 role</span></span><br><span class="line">        <span class="type">uint64_t</span> role = old_state &amp; DISPATCH_QUEUE_ROLE_MASK;</span><br><span class="line">        <span class="comment">// 检查当前状态是否等于初始状态加上角色信息</span></span><br><span class="line">        <span class="keyword">if</span> (old_state != (init | role)) &#123;  </span><br><span class="line">            <span class="comment">// 队列非空闲状态，放弃更新并退出 do while 循环。</span></span><br><span class="line">            <span class="comment">// 函数返回 false，表示队列是非空闲状态</span></span><br><span class="line">            os_atomic_rmw_loop_give_up(<span class="keyword">break</span>); </span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 队列是空闲状态</span></span><br><span class="line">        <span class="comment">// 将 role 信息保存到 value 上，生成新的 dq_state</span></span><br><span class="line">        new_state = value | role;  </span><br><span class="line"></span><br><span class="line">        <span class="comment">/**</span></span><br><span class="line"><span class="comment">         * 尝试将当前字段的值从 old_state 更新为 new_state，如果更新成功，返回 true</span></span><br><span class="line"><span class="comment">         * _p 指向 dq_state</span></span><br><span class="line"><span class="comment">         * </span></span><br><span class="line"><span class="comment">         * 比较：</span></span><br><span class="line"><span class="comment">         *      比较 _p 所指向的共享变量的当前值(dq_state)与 old_state 是否相等。</span></span><br><span class="line"><span class="comment">         * </span></span><br><span class="line"><span class="comment">         * 交换：</span></span><br><span class="line"><span class="comment">         *      如果相等，则将 _p 所指向的共享变量的值(dq_state)更新为 new_state，交换操作成功。</span></span><br><span class="line"><span class="comment">         *      如果不相等，则将 _p 的当前值(dq_state)写入 old_state，交换操作失败。</span></span><br><span class="line"><span class="comment">         * </span></span><br><span class="line"><span class="comment">         * 返回结果：</span></span><br><span class="line"><span class="comment">         *      返回一个布尔值，表示交换是否成功。</span></span><br><span class="line"><span class="comment">         *      如果成功，返回 true，代表队列进入非空闲状态</span></span><br><span class="line"><span class="comment">         *      否则，返回 false，并在下一次循环中使用更新后的 old_state 重新尝试。</span></span><br><span class="line"><span class="comment">         **/</span></span><br><span class="line">        _result = os_atomic_cmpxchgvw(_p, old_state, new_state, &amp;old_state, acquire); </span><br><span class="line"></span><br><span class="line">    &#125; <span class="keyword">while</span> (unlikely(!_result));  <span class="comment">// 如果交换未成功，继续循环尝试</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> _result;  <span class="comment">// 返回结果，表示交换是否成功</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从上述逻辑可知，是利用 <code>dq_state</code> 实现获取屏障锁逻辑，在上一篇 <code>dispatch_queue</code> 源码分析的文章里，已经知道串行队列：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// DISPATCH_QUEUE_ROLE_BASE_WLH 是 role</span></span><br><span class="line">dq_state = (DISPATCH_QUEUE_STATE_INIT_VALUE(dq_width) | DISPATCH_QUEUE_ROLE_BASE_WLH) = <span class="number">0x001ffe2000000000</span>;</span><br></pre></td></tr></table></figure>
+<p>所以首次执行 <code>_dispatch_queue_try_acquire_barrier_sync_and_suspend</code> 函数时，一定满足下面条件：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">old_state == (init | role)</span><br></pre></td></tr></table></figure>
+<p>所以会继续执行 <code>dq_state</code> 的赋值逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">new_state = value | role;</span><br></pre></td></tr></table></figure>
+<p>赋值完成后，<code>_result</code> 值为 <code>true</code>，并且 <code>_dispatch_queue_try_acquire_barrier_sync_and_suspend</code> 函数返回 <code>true</code>，获取屏障锁成功。</p>
+<p>这里，我们可以通过一个 Demo 验证下这部分逻辑：<br><img src="/images/lix_blog_220.png"></p>
+<p>根据上述 Demo 打印结果也可以看出利用 <code>dq_state</code> 实现获取屏障锁逻辑：</p>
+<ul>
+<li><code>dq_state</code> 初始值满足 <code>dq_state == (init | role)</code>，允许获取屏障锁。</li>
+<li>获取屏障锁后，<code>dq_state</code> 被修改（<code>dq_state = value | role</code>），<code>dq_state</code> 不再满 <code>dq_state == (init | role)</code>，后续提交的任务将无法再获取屏障锁。</li>
+<li>任务执行结束后，<code>dq_state</code> 会重置回初始值，下个任务可以获取屏障锁。</li>
+</ul>
+<h3 id="2、递归目标队列"><a href="#2、递归目标队列" class="headerlink" title="2、递归目标队列"></a>2、递归目标队列</h3><p>上一步屏障锁如果获取成功，则会继续执行递归目标队列的逻辑，该逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 如果目标队列也存在目标队列，表示需要递归目标队列</span></span><br><span class="line"><span class="keyword">if</span> (unlikely(dl-&gt;do_targetq-&gt;do_targetq)) &#123;</span><br><span class="line">    <span class="comment">// 调用 _dispatch_sync_recurse 递归处理，并返回</span></span><br><span class="line">    <span class="keyword">return</span> _dispatch_sync_recurse(dl, ctxt, func,</span><br><span class="line">                                  DC_FLAG_BARRIER | dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述主要逻辑是检查 <code>do_targetq</code> 是否也存在 <code>do_targetq</code>，如果存在，则需要递归队列。</p>
+<p><strong>那么，什么情况下<code> do_targetq</code> 也存在 <code>do_targetq</code> 呢？</strong></p>
+<p>比较常见的一个场景是利用 <code>dispatch_set_target_queue</code> 函数设置目标队列，<code>dispatch_set_target_queue</code> 的主要目的是将一个 <code>queue</code> 的任务调度到另一个 <code>queue</code>。当你设置一个 <code>queue</code> 的目标 <code>queue</code> 后，原 <code>queue</code> 中的任务将在目标 <code>queue</code> 中执行，这样可以确保任务的优先级和调度策略与目标 <code>queue</code> 一致。</p>
+<p><code>dispatch_set_target_queue</code> 使用示例如下：<br><img src="/images/lix_blog_221.png"><br>上述示例中，虽然任务是通过 <code>dispatch_async</code> 提交到 <code>concurrentQueue</code> 队列上的，由于设置了 <code>concurrentQueue</code> 的目标队列是 <code>serialQueue</code>，所以任务会在 <code>serialQueue</code> 上执行，最终任务串行执行。</p>
+<p>这里调用 <code>_dispatch_sync_recurse</code> 函数内部与后续正常执行任务的逻辑基本一致，这里就不再单独分析。</p>
+<h3 id="3、执行任务，并重置-dq-state、唤醒线程"><a href="#3、执行任务，并重置-dq-state、唤醒线程" class="headerlink" title="3、执行任务，并重置 dq_state、唤醒线程"></a>3、执行任务，并重置 dq_state、唤醒线程</h3><p>在上一步获取屏障锁成功后，最终会执行 <code>_dispatch_lane_barrier_sync_invoke_and_complete</code> 函数执行任务并重置 <code>dq_state</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_lane_barrier_sync_invoke_and_complete(<span class="type">dispatch_lane_t</span> dq,</span><br><span class="line">        <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func DISPATCH_TRACE_ARG(<span class="type">void</span> *dc))</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 执行任务</span></span><br><span class="line">    _dispatch_sync_function_invoke_inline(dq, ctxt, func);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 完成跟踪项，标记当前任务或事件的完成，主要用来日志记录、调试</span></span><br><span class="line">    _dispatch_trace_item_complete(dc);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检测当前队列状态，如果队列末尾存在任务或宽度大于1，则说明需要进行额外处理</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(dq-&gt;dq_items_tail || dq-&gt;dq_width &gt; <span class="number">1</span>)) &#123;</span><br><span class="line">        <span class="comment">// 调用 barrier 完成函数以处理当前的队列状态</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_lane_barrier_complete(dq, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 常见的状态检查，具体是检查旧状态中是否有需要处理的标志位</span></span><br><span class="line">    <span class="comment">// 指定某些状态需要进一步处理，只有 _dispatch_*_barrier_complete() 能够妥善处理这些状态</span></span><br><span class="line">    <span class="type">const</span> <span class="type">uint64_t</span> fail_unlock_mask = DISPATCH_QUEUE_SUSPEND_BITS_MASK |</span><br><span class="line">            DISPATCH_QUEUE_ENQUEUED | DISPATCH_QUEUE_DIRTY |</span><br><span class="line">            DISPATCH_QUEUE_RECEIVED_OVERRIDE |</span><br><span class="line">            DISPATCH_QUEUE_RECEIVED_SYNC_WAIT;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 用于存储队列的旧状态和新状态</span></span><br><span class="line">    <span class="type">uint64_t</span> old_state, new_state;</span><br><span class="line">    <span class="comment">// 用于唤醒的标志位</span></span><br><span class="line">    <span class="type">dispatch_wakeup_flags_t</span> flags = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用原子操作来更新队列状态，确保在多线程环境下的安全性</span></span><br><span class="line">    os_atomic_rmw_loop2o(dq, dq_state, old_state, new_state, release, &#123;</span><br><span class="line">        <span class="comment">// 更新新状态，表示从旧状态中去掉串行排水拥有的信息</span></span><br><span class="line">        new_state = old_state - DISPATCH_QUEUE_SERIAL_DRAIN_OWNED;</span><br><span class="line">        <span class="comment">// 清除解除锁定的标志位</span></span><br><span class="line">        new_state &amp;= ~DISPATCH_QUEUE_DRAIN_UNLOCK_MASK;</span><br><span class="line">        <span class="comment">// 清除最大优先级的标志位</span></span><br><span class="line">        new_state &amp;= ~DISPATCH_QUEUE_MAX_QOS_MASK;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 检查旧状态是否存在需要特殊处理的标志位</span></span><br><span class="line">        <span class="keyword">if</span> (unlikely(old_state &amp; fail_unlock_mask)) &#123;</span><br><span class="line">            <span class="comment">// 如果存在这样的标志，则放弃原子操作并调用完成函数，进行后期处理</span></span><br><span class="line">            os_atomic_rmw_loop_give_up(&#123;</span><br><span class="line">                <span class="keyword">return</span> _dispatch_lane_barrier_complete(dq, <span class="number">0</span>, flags);</span><br><span class="line">            &#125;);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查队列的状态是基于工作环的状态，确保事件循环没有被当前线程持有</span></span><br><span class="line">    <span class="keyword">if</span> (_dq_state_is_base_wlh(old_state)) &#123;</span><br><span class="line">        _dispatch_event_loop_assert_not_owned((<span class="type">dispatch_wlh_t</span>)dq);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行任务调用的是 <code>_dispatch_sync_function_invoke_inline</code> 函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_function_invoke_inline(<span class="type">dispatch_queue_class_t</span> dq, <span class="type">void</span> *ctxt,</span><br><span class="line">        <span class="type">dispatch_function_t</span> func)</span><br><span class="line">&#123;</span><br><span class="line">    dispatch_thread_frame_s dtf;</span><br><span class="line">    _dispatch_thread_frame_push(&amp;dtf, dq);</span><br><span class="line">    <span class="comment">// 执行任务</span></span><br><span class="line">    _dispatch_client_callout(ctxt, func);</span><br><span class="line">    _dispatch_perfmon_workitem_inc();</span><br><span class="line">    _dispatch_thread_frame_pop(&amp;dtf);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述执行任务主要是通过执行 <code>_dispatch_client_callout</code> 函数，关于 <code>_dispatch_client_callout</code> 函数，在另一篇文章<a href="https://www.lixkit.com/posts/33519/">《GCD 底层原理 1 - dispatch_once》</a> 中有总结，其核心逻辑就是执行具体任务。</p>
+<p><code>_dispatch_sync_function_invoke_inline</code> 中其他的逻辑是线程调度相关，这部分不是本次分析重点，暂时忽略这部分逻辑。</p>
+<p><code>_dispatch_lane_barrier_sync_invoke_and_complete</code> 除了任务的执行外，还有这两部分逻辑：</p>
+<ul>
+<li><strong>重置 dq_state</strong><ul>
+<li>前面已经提到，任务执行完成后，会重置 <code>dq_state</code>，使后续往队列新提交的任务可以成功获取屏障锁。</li>
+</ul>
+</li>
+<li><strong>唤醒线程</strong><ul>
+<li>如果 <code>dispatch_sync</code> 往串行队列中提交的任务还没有执行完成，再次使用 <code>dispatch_sync</code> 往相同队列提交新任务时，会获取屏障锁失败走 <code>_dispatch_sync_f_slow</code> 的逻辑，<code>_dispatch_sync_f_slow</code> 中会使线程阻塞等待上个任务的完成。当上个任务执行完成后，会唤醒阻塞的线程继续执行任务。</li>
+</ul>
+</li>
+</ul>
+<p>在分析唤醒线程的逻辑前，我们先分析下 <code>_dispatch_sync_f_slow</code> 中阻塞线程的逻辑。</p>
+<h2 id="五、-dispatch-sync-f-slow"><a href="#五、-dispatch-sync-f-slow" class="headerlink" title="五、_dispatch_sync_f_slow"></a>五、_dispatch_sync_f_slow</h2><p>在前面获取屏障锁失败后，会执行 <code>_dispatch_sync_f_slow</code> 函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_f_slow(<span class="type">dispatch_queue_class_t</span> top_dqu, <span class="type">void</span> *ctxt,</span><br><span class="line">        <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> top_dc_flags,</span><br><span class="line">        <span class="type">dispatch_queue_class_t</span> dqu, <span class="type">uintptr_t</span> dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 获取顶层和当前调度队列</span></span><br><span class="line">    <span class="type">dispatch_queue_t</span> top_dq = top_dqu._dq; </span><br><span class="line">    <span class="type">dispatch_queue_t</span> dq = dqu._dq; </span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果当前队列没有目标队列，直接调用同步函数执行</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(!dq-&gt;do_targetq)) &#123;</span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_function_invoke(dq, ctxt, func);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取当前线程的优先级</span></span><br><span class="line">    <span class="type">pthread_priority_t</span> pp = _dispatch_get_priority();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化同步上下文结构体</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_sync_context_s</span> <span class="title">dsc</span> =</span> &#123;</span><br><span class="line">        .dc_flags    = DC_FLAG_SYNC_WAITER | dc_flags,  <span class="comment">// 设置标志位，表示当前是同步等待者</span></span><br><span class="line">        .dc_func     = _dispatch_async_and_wait_invoke,  <span class="comment">// 设置要调用的函数</span></span><br><span class="line">        .dc_ctxt     = &amp;dsc,                              <span class="comment">// 将自身的上下文传递</span></span><br><span class="line">        .dc_other    = top_dq,                           <span class="comment">// 保存顶层队列</span></span><br><span class="line">        .dc_priority = pp | _PTHREAD_PRIORITY_ENFORCE_FLAG, <span class="comment">// 设置优先级</span></span><br><span class="line">        .dc_voucher  = _voucher_get(),                    <span class="comment">// 获取当前的凭证</span></span><br><span class="line">        .dsc_func    = func,                              <span class="comment">// 设置传入的函数</span></span><br><span class="line">        .dsc_ctxt    = ctxt,                              <span class="comment">// 设置传入的上下文</span></span><br><span class="line">        .dsc_waiter  = _dispatch_tid_self(),              <span class="comment">// 获取当前线程的 ID</span></span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 用于日志、调试</span></span><br><span class="line">    _dispatch_trace_item_push(top_dq, &amp;dsc);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 阻塞线程，等待队列的所有权</span></span><br><span class="line">    __DISPATCH_WAIT_FOR_QUEUE__(&amp;dsc, dq);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查 dsc_func 是否被清空，如果为 NULL，表示块在其他线程上运行</span></span><br><span class="line">    <span class="keyword">if</span> (dsc.dsc_func == <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="comment">// dsc_func 被清空意味着这个块在其他线程上运行</span></span><br><span class="line">        <span class="type">dispatch_queue_t</span> stop_dq = dsc.dc_other;  <span class="comment">// 获取停止队列</span></span><br><span class="line">        <span class="keyword">return</span> _dispatch_sync_complete_recurse(top_dq, stop_dq, top_dc_flags); <span class="comment">// 完成同步操作</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 开始同步的内省过程（用于调试）</span></span><br><span class="line">    _dispatch_introspection_sync_begin(top_dq);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 用于日志、调试</span></span><br><span class="line">    _dispatch_trace_item_pop(top_dq, &amp;dsc);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 执行任务，并重置 dq_state、唤醒线程</span></span><br><span class="line">    _dispatch_sync_invoke_and_complete_recurse(top_dq, ctxt, func, top_dc_flags</span><br><span class="line">            DISPATCH_TRACE_ARG(&amp;dsc)); </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>该函数核心逻辑如下：</p>
+<ul>
+<li><strong>阻塞线程，等待上个任务执行结束</strong><ul>
+<li>执行 <code>__DISPATCH_WAIT_FOR_QUEUE__</code> 函数</li>
+</ul>
+</li>
+<li><strong>解除阻塞后，执行当前任务，并重置 dq_state、唤醒线程</strong><ul>
+<li>执行 <code>_dispatch_sync_invoke_and_complete_recurse</code> 函数</li>
+</ul>
+</li>
+</ul>
+<h3 id="1、阻塞线程"><a href="#1、阻塞线程" class="headerlink" title="1、阻塞线程"></a>1、阻塞线程</h3><p><code>_dispatch_sync_f_slow</code> 中，阻塞线程是通过调用 <code>__DISPATCH_WAIT_FOR_QUEUE__</code> 函数实现的，该函数源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">__DISPATCH_WAIT_FOR_QUEUE__(<span class="type">dispatch_sync_context_t</span> dsc, <span class="type">dispatch_queue_t</span> dq)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 获取当前队列的状态</span></span><br><span class="line">    <span class="comment">// dq_state = dq_state | DISPATCH_QUEUE_RECEIVED_SYNC_WAIT;</span></span><br><span class="line">    <span class="type">uint64_t</span> dq_state = _dispatch_wait_prepare(dq);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 检查当前队列是否已被调用线程拥有</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(_dq_state_drain_locked_by(dq_state, dsc-&gt;dsc_waiter))) &#123;</span><br><span class="line">        DISPATCH_CLIENT_CRASH((<span class="type">uintptr_t</span>)dq_state,</span><br><span class="line">                <span class="string">&quot;dispatch_sync called on queue &quot;</span></span><br><span class="line">                <span class="string">&quot;already owned by current thread&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 提交到主线程的块必须在主线程上运行，</span></span><br><span class="line">    <span class="comment">// dispatch_async_and_wait 也在远程上下文中执行，而不是当前线程。</span></span><br><span class="line">    <span class="comment">// 对于这两种情况，我们需要保存帧链接，以便于 _dispatch_async_and_wait_invoke 使用</span></span><br><span class="line">    _dispatch_thread_frame_save_state(&amp;dsc-&gt;dsc_dtf);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_dq_state_is_suspended(dq_state) ||</span><br><span class="line">            _dq_state_is_base_anon(dq_state)) &#123;</span><br><span class="line">        dsc-&gt;dc_data = DISPATCH_WLH_ANON; </span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (_dq_state_is_base_wlh(dq_state)) &#123;</span><br><span class="line">        dsc-&gt;dc_data = (<span class="type">dispatch_wlh_t</span>)dq;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        _dispatch_wait_compute_wlh(upcast(dq)._dl, dsc);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (dsc-&gt;dc_data == DISPATCH_WLH_ANON) &#123;</span><br><span class="line">        dsc-&gt;dsc_override_qos_floor = dsc-&gt;dsc_override_qos =</span><br><span class="line">                (<span class="type">uint8_t</span>)_dispatch_get_basepri_override_qos_floor(); <span class="comment">// 获取基础优先级</span></span><br><span class="line">        _dispatch_thread_event_init(&amp;dsc-&gt;dsc_event); <span class="comment">// 初始化线程事件</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置当前的同步上下文</span></span><br><span class="line">    _dispatch_set_current_dsc((<span class="type">void</span> *) dsc);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 将当前上下文推入队列，设置优先级</span></span><br><span class="line">    dx_push(dq, dsc, _dispatch_qos_from_pp(dsc-&gt;dc_priority));</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 记录运行时事件</span></span><br><span class="line">    _dispatch_trace_runtime_event(sync_wait, dq, <span class="number">0</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (dsc-&gt;dc_data == DISPATCH_WLH_ANON) &#123;</span><br><span class="line">        <span class="comment">// 阻塞线程</span></span><br><span class="line">        _dispatch_thread_event_wait(&amp;dsc-&gt;dsc_event); </span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!dsc-&gt;dsc_wlh_self_wakeup) &#123;</span><br><span class="line">        <span class="comment">// 阻塞线程</span></span><br><span class="line">        _dispatch_event_loop_wait_for_ownership(dsc);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 清除当前的同步上下文</span></span><br><span class="line">    _dispatch_clear_current_dsc();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (dsc-&gt;dc_data == DISPATCH_WLH_ANON) &#123;</span><br><span class="line">        _dispatch_thread_event_destroy(&amp;dsc-&gt;dsc_event);</span><br><span class="line">        <span class="comment">// 如果 _dispatch_sync_waiter_wake() 给了当前线程一个优先级覆盖，</span></span><br><span class="line">        <span class="comment">// 确保根队列看到它。</span></span><br><span class="line">        <span class="keyword">if</span> (dsc-&gt;dsc_override_qos &gt; dsc-&gt;dsc_override_qos_floor) &#123;</span><br><span class="line">            _dispatch_set_basepri_override_qos(dsc-&gt;dsc_override_qos);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述逻辑中，先看这个判断：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (_dq_state_is_suspended(dq_state) ||</span><br><span class="line">        _dq_state_is_base_anon(dq_state)) &#123;</span><br><span class="line">    dsc-&gt;dc_data = DISPATCH_WLH_ANON; </span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (_dq_state_is_base_wlh(dq_state)) &#123;</span><br><span class="line">    dsc-&gt;dc_data = (<span class="type">dispatch_wlh_t</span>)dq;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    _dispatch_wait_compute_wlh(upcast(dq)._dl, dsc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述判断条件涉及的函数源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dq_state_is_suspended(<span class="type">uint64_t</span> dq_state)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> dq_state &amp; DISPATCH_QUEUE_SUSPEND_BITS_MASK;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dq_state_is_base_anon(<span class="type">uint64_t</span> dq_state)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> dq_state &amp; DISPATCH_QUEUE_ROLE_BASE_ANON;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">bool</span></span><br><span class="line">_dq_state_is_base_wlh(<span class="type">uint64_t</span> dq_state)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> dq_state &amp; DISPATCH_QUEUE_ROLE_BASE_WLH;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据前面的源码分析可以知道，<code>dq_state</code> 是不包含 <code>DISPATCH_QUEUE_SUSPEND_BITS_MASK</code> 信息的，所以 <code>_dq_state_is_suspended</code> 的判断返回 <code>false</code>。</p>
+<p>再根据另一篇文章 <a href="https://www.lixkit.com/posts/12465">《GCD 底层原理 2 - dispatch_queue》</a> 中分析得到的结论：</p>
+<ul>
+<li>串行队列，<code>role = DISPATCH_QUEUE_ROLE_BASE_WLH</code>;</li>
+<li>并发队列时，<code>role = DISPATCH_QUEUE_ROLE_BASE_ANON</code>;</li>
+</ul>
+<p>所以对于串行队列，会走进第二个 <code>if</code> 分支里。</p>
+<p>所以对于后面的这个判断：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (dsc-&gt;dc_data == DISPATCH_WLH_ANON) &#123;</span><br><span class="line">    <span class="comment">// 阻塞线程</span></span><br><span class="line">    _dispatch_thread_event_wait(&amp;dsc-&gt;dsc_event); </span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (!dsc-&gt;dsc_wlh_self_wakeup) &#123;</span><br><span class="line">    <span class="comment">// 阻塞线程</span></span><br><span class="line">    _dispatch_event_loop_wait_for_ownership(dsc);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将执行 <code>_dispatch_event_loop_wait_for_ownership</code> 函数实现阻塞逻辑，该函数的完整源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> _dispatch_event_loop_wait_for_ownership(<span class="type">dispatch_sync_context_t</span> dsc) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DISPATCH_USE_KEVENT_WORKLOOP</span></span><br><span class="line">    <span class="comment">// 从同步上下文中获取工作循环句柄</span></span><br><span class="line">    <span class="type">dispatch_wlh_t</span> wlh = dsc-&gt;dc_data;</span><br><span class="line">    <span class="comment">// 定义事件结构数组，用于存储待处理事件</span></span><br><span class="line">    dispatch_kevent_s ke[<span class="number">2</span>];</span><br><span class="line">    <span class="comment">// 设置事件标志</span></span><br><span class="line">    <span class="comment">// 注意，这里设置了 KEVENT_FLAG_IMMEDIATE</span></span><br><span class="line">    <span class="type">uint32_t</span> kev_flags = KEVENT_FLAG_IMMEDIATE | KEVENT_FLAG_ERROR_EVENTS; </span><br><span class="line">    <span class="type">uint64_t</span> dq_state; <span class="comment">// 队列状态变量</span></span><br><span class="line">    <span class="type">int</span> i, n = <span class="number">0</span>; <span class="comment">// 计数器变量</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 原子加载队列的状态</span></span><br><span class="line">    dq_state = os_atomic_load2o((<span class="type">dispatch_queue_t</span>)wlh, dq_state, relaxed);</span><br><span class="line">        </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     检查队列状态，并创建 dispatch_kevent_t</span></span><br><span class="line"><span class="comment">     </span></span><br><span class="line"><span class="comment">     _dq_state_drain_locked 函数：</span></span><br><span class="line"><span class="comment">     是否满足 dq_state &amp; DLOCK_OWNER_MASK != 0</span></span><br><span class="line"><span class="comment">     </span></span><br><span class="line"><span class="comment">     _dq_state_is_enqueued_on_target 函数：</span></span><br><span class="line"><span class="comment">     是否满足 dq_state &amp; DISPATCH_QUEUE_ENQUEUED = true</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (!_dq_state_drain_locked(dq_state) &amp;&amp; _dq_state_is_enqueued_on_target(dq_state)) &#123;</span><br><span class="line">        <span class="comment">// 此时，如果入队操作与服务线程正在处理同一项目发生竞争，可能导致队列被错误标记</span></span><br><span class="line">        <span class="comment">// 为已入队而实际是空队列。这是一个潜在的优先级反转情况。</span></span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="comment">// 如果线程请求被选择来处理事件，但未能进入用户空间进行锁定，</span></span><br><span class="line">        <span class="comment">// 因此，每个同步等待者都必须等待服务线程消耗事件请求。</span></span><br><span class="line">        <span class="comment">//</span></span><br><span class="line">        <span class="comment">// 为避免优先级反转，这里需要驱动一次以确保处理事件。</span></span><br><span class="line">        _dispatch_kq_fill_workloop_event(&amp;ke[n++], DISPATCH_WORKLOOP_ASYNC, wlh, dq_state);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (_dq_state_received_sync_wait(dq_state)) &#123; <span class="comment">// dq_state &amp; DISPATCH_QUEUE_RECEIVED_SYNC_WAIT ？</span></span><br><span class="line">        <span class="comment">// 如果队列处于同步等待状态，则填充同步等待事件</span></span><br><span class="line">        _dispatch_kq_fill_workloop_sync_event(&amp;ke[n++], DISPATCH_WORKLOOP_SYNC_DISCOVER, wlh, dq_state, _dq_state_drain_owner(dq_state));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">again:</span><br><span class="line">    <span class="comment">// 填充同步等待事件，并准备进行等待</span></span><br><span class="line">    _dispatch_kq_fill_workloop_sync_event(&amp;ke[n++], DISPATCH_WORKLOOP_SYNC_WAIT, wlh, dq_state, dsc-&gt;dsc_waiter);</span><br><span class="line">    <span class="comment">// 查询处理事件</span></span><br><span class="line">    n = _dispatch_kq_poll(wlh, ke, n, ke, n, <span class="literal">NULL</span>, <span class="literal">NULL</span>, kev_flags);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 处理返回的事件</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n; i++) &#123;</span><br><span class="line">        <span class="type">long</span> flags = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">if</span> (ke[i].fflags &amp; NOTE_WL_SYNC_WAIT) &#123;</span><br><span class="line">            flags = DISPATCH_KEVENT_WORKLOOP_ALLOW_EINTR; <span class="comment">// 如果是同步等待事件，允许中断</span></span><br><span class="line">        &#125;</span><br><span class="line">        _dispatch_kevent_workloop_drain_error(&amp;ke[i], flags); <span class="comment">// 检查并处理错误</span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果有事件被处理</span></span><br><span class="line">    <span class="keyword">if</span> (n) &#123;</span><br><span class="line">        dispatch_assert(n == <span class="number">1</span> &amp;&amp; (ke[<span class="number">0</span>].fflags &amp; NOTE_WL_SYNC_WAIT)); <span class="comment">// 确保只有一个待处理事件</span></span><br><span class="line">        _dispatch_kevent_wlh_debug(<span class="string">&quot;restarting&quot;</span>, &amp;ke[<span class="number">0</span>]); <span class="comment">// 调试用，记录重启情况</span></span><br><span class="line">        dq_state = ke[<span class="number">0</span>].ext[EV_EXTIDX_WL_VALUE]; <span class="comment">// 更新队列状态</span></span><br><span class="line">        n = <span class="number">0</span>; </span><br><span class="line">        <span class="keyword">goto</span> again;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查需要取消的状态</span></span><br><span class="line">    <span class="keyword">if</span> (dsc-&gt;dsc_waiter_needs_cancel) &#123;</span><br><span class="line">        _dispatch_event_loop_cancel_waiter(dsc); <span class="comment">// 取消等待者</span></span><br><span class="line">        dsc-&gt;dsc_waiter_needs_cancel = <span class="literal">false</span>; <span class="comment">// 重置状态</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 如果有存储资源需要释放</span></span><br><span class="line">    <span class="keyword">if</span> (dsc-&gt;dsc_release_storage) &#123;</span><br><span class="line">        _dispatch_queue_release_storage(dsc-&gt;dc_data); <span class="comment">// 释放队列存储</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据源码逻辑中各个判断条件，去除执行不到的逻辑分支，仅保留核心逻辑，精简后的 <code>_dispatch_event_loop_wait_for_ownership</code> 函数逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> _dispatch_event_loop_wait_for_ownership(<span class="type">dispatch_sync_context_t</span> dsc) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    dispatch_kevent_s ke[<span class="number">2</span>];</span><br><span class="line">    <span class="comment">// 设置事件标志</span></span><br><span class="line">    <span class="comment">// 注意，这里设置了 KEVENT_FLAG_IMMEDIATE</span></span><br><span class="line">    <span class="type">uint32_t</span> kev_flags = KEVENT_FLAG_IMMEDIATE | KEVENT_FLAG_ERROR_EVENTS; </span><br><span class="line"></span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line">again:</span><br><span class="line">    <span class="comment">// 填充同步等待事件，并准备进行等待</span></span><br><span class="line">    _dispatch_kq_fill_workloop_sync_event(&amp;ke[n++], DISPATCH_WORKLOOP_SYNC_WAIT, wlh, dq_state, dsc-&gt;dsc_waiter);</span><br><span class="line">    <span class="comment">// 查询处理事件</span></span><br><span class="line">    n = _dispatch_kq_poll(wlh, ke, n, ke, n, <span class="literal">NULL</span>, <span class="literal">NULL</span>, kev_flags);</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果有事件被处理</span></span><br><span class="line">    <span class="keyword">if</span> (n) &#123;</span><br><span class="line">        <span class="comment">// ......</span></span><br><span class="line">        n = <span class="number">0</span>; </span><br><span class="line">        <span class="keyword">goto</span> again;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>乍一看上去，线程的阻塞是通过不停的 <code>goto again</code> 实现的，其实不然。先进去看下 <code>_dispatch_kq_poll</code> 函数的实现：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">int</span></span><br><span class="line">_dispatch_kq_poll(<span class="type">dispatch_wlh_t</span> wlh, <span class="type">dispatch_kevent_t</span> ke, <span class="type">int</span> n,</span><br><span class="line">        <span class="type">dispatch_kevent_t</span> ke_out, <span class="type">int</span> n_out, <span class="type">void</span> *buf, <span class="type">size_t</span> *avail,</span><br><span class="line">        <span class="type">uint32_t</span> flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 用于标识 kqueue 是否已初始化</span></span><br><span class="line">    <span class="type">bool</span> kq_initialized = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">int</span> r = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用 dispatch_once_f 确保 _dispatch_kq_init 仅被执行一次，用于初始化 kqueue</span></span><br><span class="line">    dispatch_once_f(&amp;_dispatch_kq_poll_pred, &amp;kq_initialized, _dispatch_kq_init);</span><br><span class="line">    <span class="keyword">if</span> (unlikely(kq_initialized)) &#123;</span><br><span class="line">        <span class="comment">// 如果当前线程是进行初始化的线程，事件循环需要内存压力源和调试通道，但创建这些会递归调用 _dispatch_kq_poll()，因此不能在 dispatch once 内进行初始化</span></span><br><span class="line">        _dispatch_memorypressure_init();</span><br><span class="line">        _voucher_activity_debug_channel_init();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> !DISPATCH_USE_KEVENT_QOS</span></span><br><span class="line">    <span class="keyword">if</span> (flags &amp; KEVENT_FLAG_ERROR_EVENTS) &#123;</span><br><span class="line">        <span class="comment">// 如果不使用 kevent_qos 并且标志包含 KEVENT_FLAG_ERROR_EVENTS</span></span><br><span class="line">        <span class="comment">// 模拟 KEVENT_FLAG_ERROR_EVENTS</span></span><br><span class="line">        <span class="keyword">for</span> (r = <span class="number">0</span>; r &lt; n; r++) &#123;</span><br><span class="line">            ke[r].flags |= EV_RECEIPT; <span class="comment">// 添加 EV_RECEIPT 标志用于接收错误事件的回执</span></span><br><span class="line">        &#125;</span><br><span class="line">        n_out = n; <span class="comment">// 设置输出事件数量</span></span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">retry:</span><br><span class="line">    <span class="keyword">if</span> (unlikely(wlh == <span class="literal">NULL</span>)) &#123;</span><br><span class="line">        <span class="comment">// 如果工作循环句柄 wlh 为 NULL，触发内部崩溃，因为这是无效的</span></span><br><span class="line">        DISPATCH_INTERNAL_CRASH(wlh, <span class="string">&quot;Invalid wlh&quot;</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (wlh == DISPATCH_WLH_ANON) &#123;</span><br><span class="line">        <span class="comment">// 获取 kqueue 文件描述符</span></span><br><span class="line">        <span class="type">int</span> kqfd = _dispatch_kq_fd();</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DISPATCH_USE_KEVENT_QOS</span></span><br><span class="line">        <span class="keyword">if</span> (_dispatch_kevent_workqueue_enabled) &#123;</span><br><span class="line">            flags |= KEVENT_FLAG_WORKQ; <span class="comment">// 如果启用了工作队列，添加 KEVENT_FLAG_WORKQ 标志</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 调用 kevent_qos 进行事件轮询，处理 QoS（服务质量）相关的事件</span></span><br><span class="line">        r = kevent_qos(kqfd, ke, n, ke_out, n_out, buf, avail, flags);</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">        (<span class="type">void</span>)buf;</span><br><span class="line">        (<span class="type">void</span>)avail;</span><br><span class="line">        <span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">timespec</span> <span class="title">timeout_immediately</span> =</span> &#123;&#125;, *timeout = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">if</span> (flags &amp; KEVENT_FLAG_IMMEDIATE) timeout = &amp;timeout_immediately;</span><br><span class="line">        <span class="comment">// 调用 kevent 进行事件轮询</span></span><br><span class="line">        r = kevent(kqfd, ke, n, ke_out, n_out, timeout);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DISPATCH_USE_KEVENT_WORKLOOP</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 如果使用工作循环</span></span><br><span class="line">        flags |= KEVENT_FLAG_WORKLOOP; <span class="comment">// 添加 KEVENT_FLAG_WORKLOOP 标志</span></span><br><span class="line">        <span class="keyword">if</span> (!(flags &amp; KEVENT_FLAG_ERROR_EVENTS)) &#123;</span><br><span class="line">            flags |= KEVENT_FLAG_DYNAMIC_KQ_MUST_EXIST; <span class="comment">// 如果未设置错误事件标志，添加动态 kqueue 必须存在标志</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 使用 kevent_id 进行工作循环事件的轮询</span></span><br><span class="line">        r = kevent_id((<span class="type">uintptr_t</span>)wlh, ke, n, ke_out, n_out, buf, avail, flags);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span> <span class="comment">// DISPATCH_USE_KEVENT_WORKLOOP</span></span></span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// kevent、kevent_id 一般在发生错误的时候返回 -1</span></span><br><span class="line">    <span class="keyword">if</span> (unlikely(r == <span class="number">-1</span>)) &#123;</span><br><span class="line">        <span class="comment">// 如果 kevent 调用返回 -1，则根据 errno 进行错误处理</span></span><br><span class="line">        <span class="type">int</span> err = errno;</span><br><span class="line">        <span class="keyword">switch</span> (err) &#123;</span><br><span class="line">        <span class="keyword">case</span> ENOMEM:</span><br><span class="line">            _dispatch_temporary_resource_shortage(); <span class="comment">// 处理临时资源短缺</span></span><br><span class="line">            <span class="comment">/* FALLTHROUGH */</span></span><br><span class="line">        <span class="keyword">case</span> EINTR:</span><br><span class="line">            <span class="keyword">goto</span> retry; <span class="comment">// 如果被信号中断，重试操作</span></span><br><span class="line">        <span class="keyword">case</span> EBADF:</span><br><span class="line">            DISPATCH_CLIENT_CRASH(err, <span class="string">&quot;Do not close random Unix descriptors&quot;</span>); <span class="comment">// 文件描述符错误，导致客户端崩溃</span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DISPATCH_USE_KEVENT_WORKLOOP</span></span><br><span class="line">        <span class="keyword">case</span> ENOENT:</span><br><span class="line">            <span class="keyword">if</span> ((flags &amp; KEVENT_FLAG_ERROR_EVENTS) &amp;&amp;</span><br><span class="line">                    (flags &amp; KEVENT_FLAG_DYNAMIC_KQ_MUST_EXIST)) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="number">0</span>; <span class="comment">// 在某些情况下，忽略错误并返回 0</span></span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">/* FALLTHROUGH */</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span> <span class="comment">// DISPATCH_USE_KEVENT_WORKLOOP</span></span></span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            DISPATCH_CLIENT_CRASH(err, <span class="string">&quot;Unexpected error from kevent&quot;</span>); <span class="comment">// 其他错误导致客户端崩溃</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> r; <span class="comment">// 返回处理的事件数量或状态</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据上述源码可知，<code>_dispatch_kq_poll</code> 内部核心逻辑是对 <code>kevent/kevent_id</code> 的调用。根据内部判断条件可以看出对于串行队列，会调用 <code>kevent_id</code> 函数。<code>_dispatch_kq_poll</code> 返回值实际上就是 <code>kevent/kevent_id</code> 函数的返回值。</p>
+<p><strong>kevent 和 kevent_id 是什么呢？</strong><br><code>kevent</code> 通常与 <code>kqueue</code> 结合使用，它们提供了一种高效的方式来监控事件的发生。</p>
+<ul>
+<li><strong>kqueue</strong><ul>
+<li>事件通知接口，它允许应用程序监控多个事件源，并在事件发生时获取通知。</li>
+<li>用内核级的事件通知机制，减少了用户空间和内核空间之间的上下文切换，提高了性能。</li>
+</ul>
+</li>
+<li><strong>kevent</strong><ul>
+<li>是一个系统调用，通过 <code>kevent()</code> 系统调用，将事件注册到 kqueue 中。</li>
+<li>使用 <code>kevent()</code> 系统调用，可以等待事件发生并获取已触发的事件列表。</li>
+</ul>
+</li>
+</ul>
+<p><code>kevent</code> 函数定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">kevent</span><span class="params">(<span class="type">int</span> kq,</span></span><br><span class="line"><span class="params">    <span class="type">const</span> <span class="keyword">struct</span> kevent *changelist, <span class="type">int</span> nchanges,</span></span><br><span class="line"><span class="params">    <span class="keyword">struct</span> kevent *eventlist, <span class="type">int</span> nevents,</span></span><br><span class="line"><span class="params">    <span class="type">const</span> <span class="keyword">struct</span> timespec *timeout)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>各参数含义如下：</p>
+<ul>
+<li><code>kq</code><ul>
+<li><code>kqueue</code> 描述符，可以使用<code> kqueue()</code> 系统调用获取 kq，用于标识一个事件队列。</li>
+</ul>
+</li>
+<li><code>changelist</code><ul>
+<li>指定要添加、修改或删除的事件。</li>
+</ul>
+</li>
+<li><code>nchanges</code><ul>
+<li><code>changelist</code> 数组中的元素数量。</li>
+</ul>
+</li>
+<li><code>eventlist</code><ul>
+<li>用于接收已经发生的事件。调用成功返回后，这个数组包含了触发的事件信息。</li>
+</ul>
+</li>
+<li><code>nevents</code><ul>
+<li><code>eventlist</code> 数组的大小，指定可以返回的最大事件数量。</li>
+</ul>
+</li>
+<li><code>timeout</code><ul>
+<li>指定等待事件发生的超时时间。如果为 <code>NULL</code>，<code>kevent()</code> 系统调用将阻塞线程直到监听的事件发生。</li>
+</ul>
+</li>
+</ul>
+<p><code>kevent</code> 返回一个正整数，表示已发生的事件的数量。<code>kevent_id</code> 与 <code>kevent</code> 核心功能是一样的，<code>kevent_id</code> 是 <code>kevent</code> 的变体，提供了更细粒度的事件管理。可以在 Apple 开源的 XNU 源码中看到 kevent&#x2F;kevent_id 实现逻辑，链接：<a target="_blank" rel="noopener" href="https://github.com/apple-oss-distributions/xnu">apple-oss-distributions&#x2F;xnu</a>。</p>
+<p>总结来说，<code>kevent/kevent_id</code> 是一个系统调用，可以用来监听注册的事件的发生，其返回了已发生的事件的数量。</p>
+<p>但是，从 <code>_dispatch_event_loop_wait_for_ownership</code> 中 <code>kev_flags</code> 的配置：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 设置事件标志</span></span><br><span class="line"><span class="comment">// 注意，这里设置了 KEVENT_FLAG_IMMEDIATE</span></span><br><span class="line"><span class="type">uint32_t</span> kev_flags = KEVENT_FLAG_IMMEDIATE | KEVENT_FLAG_ERROR_EVENTS; </span><br></pre></td></tr></table></figure>
+<p>这里有两个配置：</p>
+<ul>
+<li><code>KEVENT_FLAG_IMMEDIATE</code><ul>
+<li>使 <code>kevent_id/kevent</code> 是非阻塞的，即调用立刻返回，不用等到事件发生时再返回，所以增加了该配置后会使调用不阻塞线程。</li>
+</ul>
+</li>
+<li><code>KEVENT_FLAG_ERROR_EVENTS</code><ul>
+<li>即使发生错误也要返回事件，如果在处理 <code>changelist</code> 时遇到错误，会将错误信息作为一个事件返回给用户，而不是直接返回错误码。</li>
+</ul>
+</li>
+</ul>
+<p>所以，从表面上看，调用 <code>kevent_id</code> 函数的时候，是非阻塞的，同时也说明了 <code>_dispatch_kq_poll</code> 函数是非阻塞的。<code>kevent_id</code> 返回了本次调用监听到的发生的事件的数量(含错误事件数量)，由于 <code>kevent_id</code> 函数的调用是非阻塞的，所以根本没有机会等到监听的事件的发生，也就是说 <code>_dispatch_kq_poll</code> 正常情况下返回都是 0。</p>
+<p>而 <code>_dispatch_event_loop_wait_for_ownership</code> 函数的实现中，只有 <code>_dispatch_kq_poll</code> 返回值大于 <code>0</code> 时，才会 <code>goto again</code> 逻辑。所以，<code>_dispatch_event_loop_wait_for_ownership</code> 对线程的阻塞，不是靠不停 <code>goto again</code> 实现的。</p>
+<p>那么问题就来了，既然不会不停地 <code>goto again</code>，看起来，<code>_dispatch_event_loop_wait_for_ownership</code> 对线程的阻塞，只能是靠 <code>kevent_id</code> 函数了。但是 <code>kevent_id</code> 不是配置了 <code>KEVENT_FLAG_IMMEDIATE</code> 之后，就变成了非阻塞的了吗？</p>
+<p><strong><code>kevent_id</code> 到底会不会阻塞线程呢？</strong><br>忽略其他参数配置，单纯从 <code>kevent_id</code> 传入 <code>KEVENT_FLAG_IMMEDIATE</code> 这个参数看，<code>kevent_id</code> 确实不会阻塞线程。但是，需要再看下传入的 <code>dispatch_kevent_s</code> 信息：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">_dispatch_kq_fill_workloop_sync_event(&amp;ke[n++], DISPATCH_WORKLOOP_SYNC_WAIT, wlh, dq_state, dsc-&gt;dsc_waiter);</span><br></pre></td></tr></table></figure>
+<p>这里 <code>_dispatch_kq_fill_workloop_sync_event</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_kq_fill_workloop_sync_event(<span class="type">dispatch_kevent_t</span> ke, <span class="type">int</span> which,</span><br><span class="line">        <span class="type">dispatch_wlh_t</span> wlh, <span class="type">uint64_t</span> dq_state, dispatch_tid tid)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">dispatch_queue_t</span> dq = (<span class="type">dispatch_queue_t</span>)wlh;</span><br><span class="line">    <span class="type">pthread_priority_t</span> pp = <span class="number">0</span>;</span><br><span class="line">    <span class="type">uint32_t</span> fflags = <span class="number">0</span>;</span><br><span class="line">    <span class="type">uint64_t</span> mask = <span class="number">0</span>;</span><br><span class="line">    <span class="type">uint16_t</span> action = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (which) &#123;</span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_DISCOVER:</span><br><span class="line">        dispatch_assert(_dq_state_received_sync_wait(dq_state));</span><br><span class="line">        dispatch_assert(_dq_state_in_uncontended_sync(dq_state));</span><br><span class="line">        action = EV_ADD | EV_DISABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAKE | NOTE_WL_DISCOVER_OWNER |</span><br><span class="line">                NOTE_WL_IGNORE_ESTALE;</span><br><span class="line">        mask = DISPATCH_QUEUE_ROLE_MASK | DISPATCH_QUEUE_RECEIVED_SYNC_WAIT |</span><br><span class="line">                DISPATCH_QUEUE_UNCONTENDED_SYNC;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_WAIT:</span><br><span class="line">        action = EV_ADD | EV_DISABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAIT;</span><br><span class="line">        pp     = _dispatch_get_priority();</span><br><span class="line">        <span class="keyword">if</span> (_dispatch_qos_from_pp(pp) == <span class="number">0</span>) &#123;</span><br><span class="line">            pp = _dispatch_qos_to_pp(DISPATCH_QOS_DEFAULT);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_FAKE:</span><br><span class="line">        action = EV_ADD | EV_DISABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAKE;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_WAKE:</span><br><span class="line">        dispatch_assert(_dq_state_drain_locked_by(dq_state, tid));</span><br><span class="line">        action = EV_ADD | EV_DISABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAKE | NOTE_WL_DISCOVER_OWNER;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_END:</span><br><span class="line">        action = EV_DELETE | EV_ENABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAKE | NOTE_WL_END_OWNERSHIP;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">        DISPATCH_INTERNAL_CRASH(which, <span class="string">&quot;Invalid transition&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    *ke = (dispatch_kevent_s)&#123;</span><br><span class="line">        .ident  = tid,</span><br><span class="line">        .filter = EVFILT_WORKLOOP,</span><br><span class="line">        .flags  = action,</span><br><span class="line">        .fflags = fflags,</span><br><span class="line">        .udata  = (<span class="type">uintptr_t</span>)wlh,</span><br><span class="line">        .qos    = (__typeof__(ke-&gt;qos))pp,</span><br><span class="line"></span><br><span class="line">        .ext[EV_EXTIDX_WL_MASK] = mask,</span><br><span class="line">        .ext[EV_EXTIDX_WL_VALUE] = dq_state,</span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="keyword">if</span> (fflags &amp; NOTE_WL_DISCOVER_OWNER) &#123;</span><br><span class="line">        ke-&gt;ext[EV_EXTIDX_WL_ADDR] = (<span class="type">uintptr_t</span>)&amp;dq-&gt;dq_state;</span><br><span class="line">    &#125;</span><br><span class="line">    _dispatch_kevent_wlh_debug(_dispatch_workloop_actions[which], ke);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于传入的 <code>which</code> 参数是 <code>DISPATCH_WORKLOOP_SYNC_WAIT</code>，所以<code> ke</code> 的 <code>fflags</code> 的值是：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fflags = NOTE_WL_SYNC_WAIT</span><br></pre></td></tr></table></figure>
+<p><code>NOTE_WL_SYNC_WAIT</code> 不是在 libdispatch 定义的，是在 <a target="_blank" rel="noopener" href="https://github.com/apple-oss-distributions/xnu">XNU</a> 中定义的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * data/hint fflags for EVFILT_WORKLOOP, shared with userspace</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * The ident for thread requests should be the dynamic ID of the workloop</span></span><br><span class="line"><span class="comment"> * The ident for each sync waiter must be unique to that waiter [for this workloop]</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * Commands:</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @const NOTE_WL_SYNC_WAIT [in/out]</span></span><br><span class="line"><span class="comment"> * This bit is set when the caller is waiting to become the owner of a workloop.</span></span><br><span class="line"><span class="comment"> * If the NOTE_WL_SYNC_WAKE bit is already set then the caller is not blocked,</span></span><br><span class="line"><span class="comment"> * else it blocks until it is set.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * The QoS field of the knote is used to push on other owners or servicers.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @const NOTE_WL_SYNC_WAKE [in/out]</span></span><br><span class="line"><span class="comment"> * Marks the waiter knote as being eligible to become an owner</span></span><br><span class="line"><span class="comment"> * This bit can only be set once, trying it again will fail with EALREADY.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * This modifier doesn&#x27;t affect NOTE_WL_END_OWNERSHIP.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NOTE_WL_SYNC_WAIT        0x00000004</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NOTE_WL_SYNC_WAKE        0x00000008</span></span><br></pre></td></tr></table></figure>
+<p>与 <code>NOTE_WL_SYNC_WAIT</code> 对应的，还有个 <code>NOTE_WL_SYNC_WAKE</code>，两者作用如下：</p>
+<ul>
+<li><code>NOTE_WL_SYNC_WAIT</code><ul>
+<li>这个标志表示调用者正在等待成为工作循环的所有者。</li>
+<li>如果<strong>设置了这个标志，调用线程会阻塞</strong>，直到它被唤醒成为所有者。</li>
+<li>可以用来实现线程间的同步，让一个线程等待获得工作循环的所有权。</li>
+</ul>
+</li>
+<li><code>NOTE_WL_SYNC_WAKE</code><ul>
+<li>这个标志用于标记等待的 <code>knote</code> 可以成为所有者了。</li>
+<li>设置这个标志<strong>会唤醒之前因 <code>NOTE_WL_SYNC_WAIT</code> 而阻塞的线程</strong>。</li>
+</ul>
+</li>
+</ul>
+<p>所以，由于传入的 <code>ke</code>(<code>dispatch_kevent_s</code>) 信息配置了 <code>NOTE_WL_SYNC_WAIT</code>，所以及时调用 <code>kevent_id</code> 时配置了 <code>KEVENT_FLAG_IMMEDIATE</code>，<code>kevent_id</code> 仍然会阻塞线程，直到使用 <code>NOTE_WL_SYNC_WAKE</code> 再次唤醒被阻塞的线程。</p>
+<h3 id="2、唤醒阻塞的线程"><a href="#2、唤醒阻塞的线程" class="headerlink" title="2、唤醒阻塞的线程"></a>2、唤醒阻塞的线程</h3><p>经过上一步的分析，线程的阻塞、唤醒逻辑就比较清晰了。</p>
+<p>再回头看下 <code>_dispatch_sync_f_slow</code> 实现逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_f_slow(<span class="type">dispatch_queue_class_t</span> top_dqu, <span class="type">void</span> *ctxt,</span><br><span class="line">        <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> top_dc_flags,</span><br><span class="line">        <span class="type">dispatch_queue_class_t</span> dqu, <span class="type">uintptr_t</span> dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 阻塞线程，等待队列的所有权</span></span><br><span class="line">    __DISPATCH_WAIT_FOR_QUEUE__(&amp;dsc, dq);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 执行任务，并重置 dq_state、唤醒线程</span></span><br><span class="line">    _dispatch_sync_invoke_and_complete_recurse(top_dq, ctxt, func, top_dc_flags</span><br><span class="line">            DISPATCH_TRACE_ARG(&amp;dsc)); <span class="comment">// 传递追踪参数</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_dispatch_sync_invoke_and_complete_recurse</code> 函数实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_invoke_and_complete_recurse(<span class="type">dispatch_queue_class_t</span> dq,</span><br><span class="line">        <span class="type">void</span> *ctxt, <span class="type">dispatch_function_t</span> func, <span class="type">uintptr_t</span> dc_flags</span><br><span class="line">        DISPATCH_TRACE_ARG(<span class="type">void</span> *dc))</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 执行任务</span></span><br><span class="line">    _dispatch_sync_function_invoke_inline(dq, ctxt, func);</span><br><span class="line">    _dispatch_trace_item_complete(dc);</span><br><span class="line">    <span class="comment">// 重置 dq_state、唤醒线程</span></span><br><span class="line">    _dispatch_sync_complete_recurse(dq._dq, <span class="literal">NULL</span>, dc_flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_sync_complete_recurse(<span class="type">dispatch_queue_t</span> dq, <span class="type">dispatch_queue_t</span> stop_dq,</span><br><span class="line">        <span class="type">uintptr_t</span> dc_flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">bool</span> barrier = (dc_flags &amp; DC_FLAG_BARRIER);</span><br><span class="line">    <span class="keyword">do</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (dq == stop_dq) <span class="keyword">return</span>;</span><br><span class="line">        <span class="keyword">if</span> (barrier) &#123;</span><br><span class="line">            dx_wakeup(dq, <span class="number">0</span>, DISPATCH_WAKEUP_BARRIER_COMPLETE);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            _dispatch_lane_non_barrier_complete(upcast(dq)._dl, <span class="number">0</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        dq = dq-&gt;do_targetq;</span><br><span class="line">        barrier = (dq-&gt;dq_width == <span class="number">1</span>);</span><br><span class="line">    &#125; <span class="keyword">while</span> (unlikely(dq-&gt;do_targetq));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>到这里，再回头看下调用 <code>_dispatch_sync_f_slow</code> 函数地方：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 尝试获取屏障锁</span></span><br><span class="line"><span class="keyword">if</span> (unlikely(!_dispatch_queue_try_acquire_barrier_sync(dl, tid))) &#123;</span><br><span class="line">    <span class="comment">// 如果无法获取屏障锁，调用 _dispatch_sync_f_slow 处理</span></span><br><span class="line">    <span class="keyword">return</span> _dispatch_sync_f_slow(dl, ctxt, func, DC_FLAG_BARRIER, dl,</span><br><span class="line">                                 DC_FLAG_BARRIER | dc_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>传入的 <code>dc_flags</code> 实际为：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dc_flags = DC_FLAG_BARRIER | dc_flags;</span><br></pre></td></tr></table></figure>
+<p>所以，<code>_dispatch_sync_complete_recurse</code> 里 <code>barrier</code> 为 <code>true</code>，因此会执行：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dx_wakeup(dq, <span class="number">0</span>, DISPATCH_WAKEUP_BARRIER_COMPLETE);</span><br></pre></td></tr></table></figure>
+<p><code>dx_wakeup</code> 是个宏：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> dx_wakeup(x, y, z) dx_vtable(x)-&gt;dq_wakeup(x, y, z)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> dx_vtable(x) (&amp;(x)-&gt;do_vtable-&gt;_os_obj_vtable)</span></span><br></pre></td></tr></table></figure>
+<p>将宏完全展开：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&amp;(dq)-&gt;do_vtable-&gt;_os_obj_vtable-&gt;dq_wakeup(dq, <span class="number">0</span>, DISPATCH_WAKEUP_BARRIER_COMPLETE)</span><br></pre></td></tr></table></figure>
+<p>到这里，就需要再回头看下另篇文章<a href="https://www.lixkit.com/posts/12465">《GCD 底层原理 2 - dispatch_queue》</a>里的关于串行队列虚表 <code>vtable</code> 的内容：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="class"><span class="keyword">struct</span> <span class="title">dispatch_lane_vtable_s</span> _<span class="title">dispatch_queue_serial_vtable</span> =</span> &#123;</span><br><span class="line">    ._os_obj_xref_dispose = _dispatch_xref_dispose,</span><br><span class="line">    ._os_obj_dispose = _dispatch_dispose,</span><br><span class="line">    ._os_obj_vtable = &#123;</span><br><span class="line">        .do_kind = <span class="string">&quot;queue_serial&quot;</span>,</span><br><span class="line">        .do_type        = DISPATCH_QUEUE_SERIAL_TYPE,</span><br><span class="line">        .do_dispose     = _dispatch_lane_dispose,</span><br><span class="line">        .do_debug       = _dispatch_queue_debug,</span><br><span class="line">        .do_invoke      = _dispatch_lane_invoke,</span><br><span class="line"></span><br><span class="line">        .dq_activate    = _dispatch_lane_activate,</span><br><span class="line">        .dq_wakeup      = _dispatch_lane_wakeup,</span><br><span class="line">        .dq_push        = _dispatch_lane_push,</span><br><span class="line">    &#125;,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>所以，前面 <code>dx_wakeup</code> 的调用，实际调用的是 <code>_dispatch_lane_wakeup</code> 函数，该函数实现源码如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_dispatch_lane_wakeup(<span class="type">dispatch_lane_class_t</span> dqu, <span class="type">dispatch_qos_t</span> qos,</span><br><span class="line">        <span class="type">dispatch_wakeup_flags_t</span> flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">dispatch_queue_wakeup_target_t</span> target = DISPATCH_QUEUE_WAKEUP_NONE;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (unlikely(flags &amp; DISPATCH_WAKEUP_BARRIER_COMPLETE)) &#123;</span><br><span class="line">        <span class="keyword">return</span> _dispatch_lane_barrier_complete(dqu, qos, flags);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (_dispatch_queue_class_probe(dqu)) &#123;</span><br><span class="line">        target = DISPATCH_QUEUE_WAKEUP_TARGET;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> _dispatch_queue_wakeup(dqu, qos, flags, target);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>经过下面函数执行路径：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">_dispatch_queue_wakeup</span><br><span class="line">⬇️</span><br><span class="line">_dispatch_workloop_barrier_complete</span><br><span class="line">⬇️</span><br><span class="line">_dispatch_event_loop_end_ownership</span><br></pre></td></tr></table></figure>
+<p>会调用到 <code>_dispatch_event_loop_end_ownership</code> 函数，<code>_dispatch_event_loop_end_ownership</code> 函数核心逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_dispatch_event_loop_end_ownership(<span class="type">dispatch_wlh_t</span> wlh, <span class="type">uint64_t</span> old_state,</span><br><span class="line">        <span class="type">uint64_t</span> new_state, <span class="type">uint32_t</span> flags)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">uint32_t</span> kev_flags = KEVENT_FLAG_IMMEDIATE | KEVENT_FLAG_ERROR_EVENTS;</span><br><span class="line">    dispatch_kevent_s ke[<span class="number">2</span>];</span><br><span class="line">    <span class="type">int</span> n = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!_dq_state_in_uncontended_sync(old_state)) &#123;</span><br><span class="line">        dispatch_tid tid = _dispatch_tid_self();</span><br><span class="line">        _dispatch_kq_fill_workloop_sync_event(&amp;ke[n++],</span><br><span class="line">                DISPATCH_WORKLOOP_SYNC_END, wlh, new_state, tid);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (_dispatch_kq_poll(wlh, ke, n, ke, n, <span class="literal">NULL</span>, <span class="literal">NULL</span>, kev_flags)) &#123;</span><br><span class="line">        _dispatch_kevent_workloop_drain_error(&amp;ke[<span class="number">0</span>], <span class="number">0</span>);</span><br><span class="line">        __builtin_unreachable();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里又看到了熟悉的逻辑：</p>
+<ul>
+<li>调用 <code>_dispatch_kq_fill_workloop_sync_event</code> 创建 <code>ke</code>。</li>
+<li>调用 <code>_dispatch_kq_poll</code>。</li>
+</ul>
+<p>这里调用 <code>_dispatch_kq_fill_workloop_sync_event</code> 时，传入的是 <code>DISPATCH_WORKLOOP_SYNC_END</code>，结合前面提到的 <code>_dispatch_kq_fill_workloop_sync_event</code> 源码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span></span><br><span class="line">_dispatch_kq_fill_workloop_sync_event(<span class="type">dispatch_kevent_t</span> ke, <span class="type">int</span> which,</span><br><span class="line">        <span class="type">dispatch_wlh_t</span> wlh, <span class="type">uint64_t</span> dq_state, dispatch_tid tid)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">switch</span> (which) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> DISPATCH_WORKLOOP_SYNC_END:</span><br><span class="line">        action = EV_DELETE | EV_ENABLE;</span><br><span class="line">        fflags = NOTE_WL_SYNC_WAKE | NOTE_WL_END_OWNERSHIP;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">        DISPATCH_INTERNAL_CRASH(which, <span class="string">&quot;Invalid transition&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    *ke = (dispatch_kevent_s)&#123;</span><br><span class="line">        .ident  = tid,</span><br><span class="line">        .filter = EVFILT_WORKLOOP,</span><br><span class="line">        .flags  = action,</span><br><span class="line">        .fflags = fflags,</span><br><span class="line">        .udata  = (<span class="type">uintptr_t</span>)wlh,</span><br><span class="line">        .qos    = (__typeof__(ke-&gt;qos))pp,</span><br><span class="line"></span><br><span class="line">        .ext[EV_EXTIDX_WL_MASK] = mask,</span><br><span class="line">        .ext[EV_EXTIDX_WL_VALUE] = dq_state,</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// ......</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以知道，这里 <code>fflags</code> 配置的是：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fflags = NOTE_WL_SYNC_WAKE | NOTE_WL_END_OWNERSHIP;</span><br></pre></td></tr></table></figure>
+<p>结合前面 <code>NOTE_WL_SYNC_WAIT</code>、<code>NOTE_WL_SYNC_WAKE</code> 相关内容可以知道，配置了 <code>NOTE_WL_SYNC_WAKE</code> 之后，在 <code>_dispatch_kq_poll</code> 内部调用的 <code>kevent_id</code>，会使当前唤醒当前被阻塞的线程，开始执行当前任务。</p>
+<p>除此之外，在前面获取屏障锁成功之后的逻辑，所调用的 <code>_dispatch_lane_barrier_sync_invoke_and_complete</code> 函数，内部也是基本相同的唤起阻塞线程的逻辑。</p>
+<p>可以使用一个简单的 Demo 验证这个流程：<br><img src="/images/lix_blog_222.png"><br>添加一个 <code>Symbolic</code> 断点，当调用到 <code>kevent_id</code> 函数时候，打印出调用堆栈：<br><img src="/images/lix_blog_223.png"><br>编译运行，打印信息如下：<br><img src="/images/lix_blog_224.png"><br>可以看到，打印的堆栈信息，和前面分析得出的结论一致。</p>
+<h2 id="六、总结"><a href="#六、总结" class="headerlink" title="六、总结"></a>六、总结</h2><p>前面总结了使用 <code>dispatch_sync</code> 往串行队列提交任务的源码执行逻辑，对于 <code>dispatch_sync</code> 往并发队列提交任务的处理流程，将在后续分析 <code>dispatch_async</code> 源码时一起分析。</p>
+<p>可以用下图表示上述的源码逻辑：<br><img src="/images/lix_blog_225.png"></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/12465/">
+        <span class="nav-arrow">← </span>
+        
+          GCD 底层原理 2 - dispatch_queue
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/50907/">
+        
+          GCD 底层原理 4 - dispatch_async
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/42034/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

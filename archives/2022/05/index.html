@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta property="og:type" content="website">
+<meta property="og:title" content="李峰峰博客">
+<meta property="og:url" content="https://www.lixkit.com/archives/2022/05/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="李峰峰, iOS, 底层原理, Runtime, Runloop, 热修复">
+<meta name="twitter:card" content="summary">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>归档</h2>
+</div>
+<main class="app-body" id="archives">
+  
+  
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2023
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/28259/" class="archive-title">深入解析 iOS 系统架构</a>
+        <p class="archive-date">10-07</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/15823/" class="archive-title">文件 IO 与 mmap</a>
+        <p class="archive-date">08-16</p>
+      </div>
+    
+  </div>
+</section>
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2022
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/34692/" class="archive-title">GCD 底层原理 5 - 线程池</a>
+        <p class="archive-date">12-17</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/50907/" class="archive-title">GCD 底层原理 4 - dispatch_async</a>
+        <p class="archive-date">11-17</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/42034/" class="archive-title">GCD 底层原理 3 - dispatch_sync</a>
+        <p class="archive-date">11-12</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/12465/" class="archive-title">GCD 底层原理 2 - dispatch_queue</a>
+        <p class="archive-date">10-25</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/33519/" class="archive-title">GCD 底层原理 1 - dispatch_once</a>
+        <p class="archive-date">10-15</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/62814/" class="archive-title">热修复之 MangoFix 实现原理</a>
+        <p class="archive-date">10-02</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/48084/" class="archive-title">热修复之 JSPatch 实现原理</a>
+        <p class="archive-date">09-10</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/20895/" class="archive-title">编译原理之 Lex &amp; Yacc</a>
+        <p class="archive-date">05-03</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/63748/" class="archive-title">编译原理之 OC 编译</a>
+        <p class="archive-date">05-01</p>
+      </div>
+    
+  </div>
+</section>
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2021
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/29690/" class="archive-title">APP 启动优化 3 - 二进制重排</a>
+        <p class="archive-date">05-11</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/29857/" class="archive-title">APP 启动优化 2 - 优化方案</a>
+        <p class="archive-date">04-10</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/40965/" class="archive-title">APP 启动优化 1 - 冷启动流程</a>
+        <p class="archive-date">04-02</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/16217/" class="archive-title">图片加载原理及优化</a>
+        <p class="archive-date">02-18</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/42986/" class="archive-title">UI 渲染原理与优化</a>
+        <p class="archive-date">02-12</p>
+      </div>
+    
+  </div>
+</section>
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2020
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/56329/" class="archive-title">WKWebView 与 JavaScriptCore</a>
+        <p class="archive-date">09-12</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/61952/" class="archive-title">NSNotification 实现原理</a>
+        <p class="archive-date">09-05</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/60692/" class="archive-title">Autorelease 实现原理</a>
+        <p class="archive-date">08-30</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/15665/" class="archive-title">引用计数实现原理</a>
+        <p class="archive-date">08-15</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/21474/" class="archive-title">RunLoop 实现原理</a>
+        <p class="archive-date">07-27</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/60564/" class="archive-title">Runtime 拾遗</a>
+        <p class="archive-date">05-12</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/39373/" class="archive-title">Runtime 之消息机制</a>
+        <p class="archive-date">05-10</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/1794/" class="archive-title">Runtime 之 method</a>
+        <p class="archive-date">04-26</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/42759/" class="archive-title">Block 实现原理</a>
+        <p class="archive-date">04-10</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/25223/" class="archive-title">OC 对象一探究竟之三：alloc 与 init</a>
+        <p class="archive-date">03-29</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/16257/" class="archive-title">OC 对象一探究竟之二：内存中的对象</a>
+        <p class="archive-date">03-28</p>
+      </div>
+    
+  </div>
+</section>
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2019
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/60413/" class="archive-title">OC 对象一探究竟之一：对象的底层实现</a>
+        <p class="archive-date">11-21</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/26714/" class="archive-title">AFNetworking 实现分析</a>
+        <p class="archive-date">10-11</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/27553/" class="archive-title">MLeaksFinder 实现分析</a>
+        <p class="archive-date">10-06</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/14548/" class="archive-title">SDWebImage 实现分析</a>
+        <p class="archive-date">10-03</p>
+      </div>
+    
+  </div>
+</section>
+  
+    <section class="time-section">
+  <h1 class="section-year">
+    2017
+  </h1>
+  <div class="section-list">
+    
+    
+      <div class="section-list-item">
+        <a href="/posts/61621/" class="archive-title">iOS 逆向工程之 fishhook</a>
+        <p class="archive-date">07-06</p>
+      </div>
+    
+      <div class="section-list-item">
+        <a href="/posts/37809/" class="archive-title">iOS 逆向工程之插件开发</a>
+        <p class="archive-date">06-25</p>
+      </div>
+    
+  </div>
+</section>
+  
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/archives/2022/05/index.html';
+    $('#article-banner').geopattern(url);
+    $('.header').removeClass('fixed-header');
+  })();
+</script>
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

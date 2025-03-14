@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、基本使用JSPatch  基于 JavaScriptCore、Runtime 实现，可以使用 JavaScript 代码对原方法进行重写(覆盖)、新增方法等，实现对线上问题代码的修复，例如：假设 JPViewController 中按钮点击事件如下： 123456@implementation JPViewController- (void)handleBtn:(id)sender &amp;#123">
+<meta property="og:type" content="article">
+<meta property="og:title" content="热修复之 JSPatch 实现原理">
+<meta property="og:url" content="https://www.lixkit.com/posts/48084/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、基本使用JSPatch  基于 JavaScriptCore、Runtime 实现，可以使用 JavaScript 代码对原方法进行重写(覆盖)、新增方法等，实现对线上问题代码的修复，例如：假设 JPViewController 中按钮点击事件如下： 123456@implementation JPViewController- (void)handleBtn:(id)sender &amp;#123">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_186.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_187.png">
+<meta property="article:published_time" content="2022-09-10T16:33:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.904Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="源码">
+<meta property="article:tag" content="热修复">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_186.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      热修复之 JSPatch 实现原理 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>热修复之 JSPatch 实现原理</h2>
+  <p class="post-date">2022-09-10</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、基本使用"><a href="#一、基本使用" class="headerlink" title="一、基本使用"></a>一、基本使用</h2><p>JSPatch  基于 <code>JavaScriptCore</code>、<code>Runtime</code> 实现，可以使用 JavaScript 代码对原方法进行重写(覆盖)、新增方法等，实现对线上问题代码的修复，例如：<br>假设 <code>JPViewController</code> 中按钮点击事件如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">@implementation JPViewController</span><br><span class="line"></span><br><span class="line">- (void)handleBtn:(id)sender &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">@end</span><br></pre></td></tr></table></figure>
+<p>现在要使用 JSPatch 覆盖该方法，使点击按钮跳转到 <code>JPTableViewController</code>，其对应 JSPatch 热修复代码实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">defineClass(&#x27;JPViewController&#x27;, &#123;</span><br><span class="line">  handleBtn: function(sender) &#123;</span><br><span class="line">    var tableViewCtrl = JPTableViewController.alloc().init()</span><br><span class="line">    self.navigationController().pushViewController_animated(tableViewCtrl, YES)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>将上述热修复代码放到 demo.js 文件中，使用 <code>JPEngine</code> 执行 JS 代码即可实现对原方法的覆盖：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[JPEngine startEngine];</span><br><span class="line"><span class="built_in">NSString</span> *sourcePath = [[<span class="built_in">NSBundle</span> mainBundle] pathForResource:<span class="string">@&quot;demo&quot;</span> ofType:<span class="string">@&quot;js&quot;</span>];</span><br><span class="line"><span class="built_in">NSString</span> *script = [<span class="built_in">NSString</span> stringWithContentsOfFile:sourcePath encoding:<span class="built_in">NSUTF8StringEncoding</span> error:<span class="literal">nil</span>];</span><br><span class="line">[JPEngine evaluateScript:script];</span><br></pre></td></tr></table></figure>
+<p>在 JSPatch 的热修复代码中，调用 OC 方法的方式为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">// 调用类方法</span><br><span class="line">var redColor = UIColor.redColor();</span><br><span class="line"></span><br><span class="line">// 调用实例方法</span><br><span class="line">var view = UIView.alloc().init();</span><br><span class="line">view.setNeedsLayout();</span><br><span class="line"></span><br><span class="line">// 多参数方法名使用 _ 分隔</span><br><span class="line">self.navigationController().pushViewController_animated(tableViewCtrl, YES)</span><br><span class="line"></span><br><span class="line">// 在方法名前加 ORIG 即可调用未覆盖前的 OC 原方法：</span><br><span class="line">defineClass(&quot;JPTableViewController&quot;, &#123;</span><br><span class="line">  viewDidLoad: function() &#123;</span><br><span class="line">     self.ORIGviewDidLoad();</span><br><span class="line">  &#125;,</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="二、实现原理"><a href="#二、实现原理" class="headerlink" title="二、实现原理"></a>二、实现原理</h2><h3 id="1、OC-方法的替换"><a href="#1、OC-方法的替换" class="headerlink" title="1、OC 方法的替换"></a>1、OC 方法的替换</h3><p>前面热修复代码实例中，可以看到 defineClass 的调用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">defineClass(&#x27;JPViewController&#x27;, &#123;</span><br><span class="line">  handleBtn: function(sender) &#123;</span><br><span class="line">    ...</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>在执行 <code>defineClass</code> 时，实际上会走进 JSPatch.js 中定义的 <code>defineClass</code> 中，<code>defineClass</code> 实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">global.defineClass = function(declaration, properties, instMethods, clsMethods) &#123;</span><br><span class="line">    var newInstMethods = &#123;&#125;, newClsMethods = &#123;&#125;</span><br><span class="line">    // 如果 properties 不是数组，则调整参数顺序</span><br><span class="line">    if (!(properties instanceof Array)) &#123;</span><br><span class="line">      clsMethods = instMethods</span><br><span class="line">      instMethods = properties</span><br><span class="line">      properties = null</span><br><span class="line">    &#125;</span><br><span class="line">    // 如果有 properties，为每个属性生成 getter 和 setter 方法，并添加到 instMethods 中</span><br><span class="line">    if (properties) &#123;</span><br><span class="line">      // 遍历 properties 数组中的每一个属性名</span><br><span class="line">      properties.forEach(function(name)&#123;</span><br><span class="line">        // 如果 instMethods 中没有该属性名对应的方法，则为其生成 getter 方法</span><br><span class="line">        if (!instMethods[name]) &#123;</span><br><span class="line">          instMethods[name] = _propertiesGetFun(name);</span><br><span class="line">        &#125;</span><br><span class="line">        var nameOfSet = &quot;set&quot;+ name.substr(0,1).toUpperCase() + name.substr(1);</span><br><span class="line">          // 如果 instMethods 中没有该 setter 方法，则为其生成 setter 方法</span><br><span class="line">        if (!instMethods[nameOfSet]) &#123;</span><br><span class="line">          instMethods[nameOfSet] = _propertiesSetFun(name);</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    // 提取类名，并去除多余的空格</span><br><span class="line">    var realClsName = declaration.split(&#x27;:&#x27;)[0].trim()</span><br><span class="line">    </span><br><span class="line">    /**</span><br><span class="line">     * instMethods/clsMethods -&gt; newInstMethods/newClsMethods</span><br><span class="line">     * newInstMethods/newClsMethods 都是数组，key 为原始函数的名称；value 为数组，[0] 为参数数量，[1] 函数实现</span><br><span class="line">     */</span><br><span class="line">    _formatDefineMethods(instMethods, newInstMethods, realClsName)</span><br><span class="line">    _formatDefineMethods(clsMethods, newClsMethods, realClsName)</span><br><span class="line">    // _OC_defineClass：新增方法，或者对原方法进行覆盖</span><br><span class="line">    var ret = _OC_defineClass(declaration, newInstMethods, newClsMethods)</span><br><span class="line">    var className = ret[&#x27;cls&#x27;]</span><br><span class="line">    var superCls = ret[&#x27;superCls&#x27;]</span><br><span class="line">    _ocCls[className] = &#123;</span><br><span class="line">      instMethods: &#123;&#125;,</span><br><span class="line">      clsMethods: &#123;&#125;,</span><br><span class="line">    &#125;</span><br><span class="line">    if (superCls.length &amp;&amp; _ocCls[superCls]) &#123;</span><br><span class="line">      for (var funcName in _ocCls[superCls][&#x27;instMethods&#x27;]) &#123;</span><br><span class="line">        _ocCls[className][&#x27;instMethods&#x27;][funcName] = _ocCls[superCls][&#x27;instMethods&#x27;][funcName]</span><br><span class="line">      &#125;</span><br><span class="line">      for (var funcName in _ocCls[superCls][&#x27;clsMethods&#x27;]) &#123;</span><br><span class="line">        _ocCls[className][&#x27;clsMethods&#x27;][funcName] = _ocCls[superCls][&#x27;clsMethods&#x27;][funcName]</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    _setupJSMethod(className, instMethods, 1, realClsName)</span><br><span class="line">    _setupJSMethod(className, clsMethods, 0, realClsName)</span><br><span class="line">    return require(className)</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>由上可知，<code>defineClass</code> 定义如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">defineClass(classDeclaration, [properties,] instanceMethods, classMethods)</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>classDeclaration</code>：字符串，类名&#x2F;父类名和 Protocol</li>
+<li><code>properties</code>：新增 property，字符串数组，可省略</li>
+<li><code>instanceMethods</code>：要添加或覆盖的实例方法</li>
+<li><code>classMethods</code>：要添加或覆盖的类方法</li>
+</ul>
+<p>例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">defineClass(&quot;xxxClassName&quot;, [&#x27;property1&#x27;, &#x27;property2&#x27;], &#123;</span><br><span class="line">  instanceMethod1: function() &#123;&#125;,</span><br><span class="line">  instanceMethod2: function() &#123;&#125;</span><br><span class="line">&#125;, &#123;</span><br><span class="line">  classMethod1: function() &#123;&#125;,</span><br><span class="line">  classMethod2: function() &#123;&#125;</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+
+<p><code>defineClass</code> 中主要逻辑如下：</p>
+<ul>
+<li>如果有 <code>properties</code>，为每个属性生成 <code>getter</code> 和 <code>setter</code> 方法，并添加到 <code>instMethods</code> 中。</li>
+<li>对 <code>instMethods</code>、<code>classMethods</code> 进行包装处理，<ul>
+<li>包装前：<code>key</code> 为原始函数的名称；<code>value</code> 为函数实现。</li>
+<li>包装后：<code>key</code> 为原始函数的名称；<code>value</code> 为数组，<code>[0]</code> 为参数数量，<code>[1]</code> 函数实现。<ul>
+<li>如果包装的原因是，从 JS 将数据传给 OC，OC 收到的是 <code>JSValue</code> 类型，OC 无法从中读取参数数量，而 OC 后续的逻辑需要使用参数数量。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>执行 <code>_OC_defineClass</code>，进行方法的新增和替换。</li>
+</ul>
+<p><code>_OC_defineClass</code> 是 OC 中通过 <code>JSContext</code> 注入的函数：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">context[<span class="string">@&quot;_OC_defineClass&quot;</span>] = ^(<span class="built_in">NSString</span> *classDeclaration, JSValue *instanceMethods, JSValue *classMethods) &#123;</span><br><span class="line">    <span class="keyword">return</span> defineClass(classDeclaration, instanceMethods, classMethods);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>其会走进 OC 实现的 defineClass 方法中：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> 替换或新增方法。并返回字典：@&#123;@&quot;cls&quot;: className, @&quot;superCls&quot;: superClassName&#125;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">static</span> <span class="built_in">NSDictionary</span> *defineClass(<span class="built_in">NSString</span> *classDeclaration, JSValue *instanceMethods, JSValue *classMethods)</span><br><span class="line">&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 使用 NSScanner 扫描 classDeclaration 字符串，提取类名、父类名和协议名</span></span><br><span class="line">    <span class="comment">// classDeclaration 示例：JPTableViewController : UITableViewController &lt;UIAlertViewDelegate&gt;</span></span><br><span class="line">    <span class="built_in">NSScanner</span> *scanner = [<span class="built_in">NSScanner</span> scannerWithString:classDeclaration];</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">NSString</span> *className;</span><br><span class="line">    <span class="built_in">NSString</span> *superClassName;</span><br><span class="line">    <span class="built_in">NSString</span> *protocolNames;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 扫描到 &quot;:&quot; 之前的内容作为类名</span></span><br><span class="line">    [scanner scanUpToString:<span class="string">@&quot;:&quot;</span> intoString:&amp;className];</span><br><span class="line">    <span class="keyword">if</span> (!scanner.isAtEnd) &#123;</span><br><span class="line">        <span class="comment">// 跳过 &quot;:&quot; 字符</span></span><br><span class="line">        scanner.scanLocation = scanner.scanLocation + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 扫描到 &quot;&lt;&quot; 之前的内容作为父类名</span></span><br><span class="line">        [scanner scanUpToString:<span class="string">@&quot;&lt;&quot;</span> intoString:&amp;superClassName];</span><br><span class="line">        <span class="keyword">if</span> (!scanner.isAtEnd) &#123;</span><br><span class="line">            <span class="comment">// 跳过 &quot;&lt;&quot; 字符</span></span><br><span class="line">            scanner.scanLocation = scanner.scanLocation + <span class="number">1</span>;</span><br><span class="line">            <span class="comment">// 扫描到 &quot;&gt;&quot; 之前的内容作为协议名</span></span><br><span class="line">            [scanner scanUpToString:<span class="string">@&quot;&gt;&quot;</span> intoString:&amp;protocolNames];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 如果 superClassName 没取到，就赋值为 NSObject</span></span><br><span class="line">    <span class="keyword">if</span> (!superClassName) superClassName = <span class="string">@&quot;NSObject&quot;</span>;</span><br><span class="line">    className = trim(className);</span><br><span class="line">    superClassName = trim(superClassName);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 协议可能是多个，拆分成数组</span></span><br><span class="line">    <span class="built_in">NSArray</span> *protocols = [protocolNames length] ? [protocolNames componentsSeparatedByString:<span class="string">@&quot;,&quot;</span>] : <span class="literal">nil</span>;</span><br><span class="line">    </span><br><span class="line">    Class cls = <span class="built_in">NSClassFromString</span>(className);</span><br><span class="line">    <span class="keyword">if</span> (!cls) &#123;</span><br><span class="line">        Class superCls = <span class="built_in">NSClassFromString</span>(superClassName);</span><br><span class="line">        <span class="keyword">if</span> (!superCls) &#123;</span><br><span class="line">            _exceptionBlock([<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;can&#x27;t find the super class %@&quot;</span>, superClassName]);</span><br><span class="line">            <span class="keyword">return</span> @&#123;<span class="string">@&quot;cls&quot;</span>: className&#125;;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 类不存在，但是父类存在。则动态创建一个新的类</span></span><br><span class="line">        cls = objc_allocateClassPair(superCls, className.UTF8String, <span class="number">0</span>);</span><br><span class="line">        <span class="comment">// 将新创建的类注册到运行时系统中</span></span><br><span class="line">        objc_registerClassPair(cls);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (protocols.count &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="built_in">NSString</span>* protocolName <span class="keyword">in</span> protocols) &#123;</span><br><span class="line">            <span class="comment">// 将协议添加到的类中，使类遵循该协议</span></span><br><span class="line">            Protocol *protocol = objc_getProtocol([trim(protocolName) cStringUsingEncoding:<span class="built_in">NSUTF8StringEncoding</span>]);</span><br><span class="line">            class_addProtocol (cls, protocol);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">2</span>; i ++) &#123;</span><br><span class="line">        <span class="comment">// 分别针对 instanceMethods、classMethods 处理</span></span><br><span class="line">        <span class="type">BOOL</span> isInstance = i == <span class="number">0</span>;</span><br><span class="line">        JSValue *jsMethods = isInstance ? instanceMethods: classMethods;</span><br><span class="line">        <span class="comment">/**</span></span><br><span class="line"><span class="comment">         objc_getMetaClass 获取元类，接收参数是字符串。等价于 object_getClass([xxxObject class])</span></span><br><span class="line"><span class="comment">         元类：类的所属类，普通类存储了实例方法，而元类存储了类方。</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        Class currCls = isInstance ? cls: objc_getMetaClass(className.UTF8String);</span><br><span class="line">        <span class="built_in">NSDictionary</span> *methodDict = [jsMethods toDictionary];</span><br><span class="line">        <span class="keyword">for</span> (<span class="built_in">NSString</span> *jsMethodName <span class="keyword">in</span> methodDict.allKeys) &#123;</span><br><span class="line">            <span class="comment">/**</span></span><br><span class="line"><span class="comment">             在 JS 的 _formatDefineMethods 中，methodName 对应的 value 被设置成了数组，[0] 为参数数量，[1] 为包装后的函数实现</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            JSValue *jsMethodArr = [jsMethods valueForProperty:jsMethodName];</span><br><span class="line">            <span class="comment">// 获取方法的参数个数</span></span><br><span class="line">            <span class="type">int</span> numberOfArg = [jsMethodArr[<span class="number">0</span>] toInt32];</span><br><span class="line">            <span class="comment">/**</span></span><br><span class="line"><span class="comment">             将 JS 热修复代码的方法名转成正常方法名。例如：</span></span><br><span class="line"><span class="comment">             tableView_cellForRowAtIndexPath -&gt;  tableView:cellForRowAtIndexPath:</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            <span class="built_in">NSString</span> *selectorName = convertJPSelectorString(jsMethodName);</span><br><span class="line">            </span><br><span class="line">            <span class="keyword">if</span> ([selectorName componentsSeparatedByString:<span class="string">@&quot;:&quot;</span>].count - <span class="number">1</span> &lt; numberOfArg) &#123;</span><br><span class="line">                selectorName = [selectorName stringByAppendingString:<span class="string">@&quot;:&quot;</span>];</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            JSValue *jsMethod = jsMethodArr[<span class="number">1</span>];</span><br><span class="line">            <span class="keyword">if</span> (class_respondsToSelector(currCls, <span class="built_in">NSSelectorFromString</span>(selectorName))) &#123;</span><br><span class="line">                <span class="comment">// 如果 currCls 中已实现对应方法，说明是想覆盖原方法，HOOK 替换原方法实现</span></span><br><span class="line">                overrideMethod(currCls, selectorName, jsMethod, !isInstance, <span class="literal">NULL</span>);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="comment">// currCls 中如果没有实现过，则无法直接获取方法的类型编码（overrideMethod 的最后一个参数），需要获取正确的类型编码传进去</span></span><br><span class="line">                <span class="comment">// 先看协议中使用有这个方法，如果有，则从协议中获取方法类型编码</span></span><br><span class="line">                <span class="type">BOOL</span> overrided = <span class="literal">NO</span>;</span><br><span class="line">                <span class="keyword">for</span> (<span class="built_in">NSString</span> *protocolName <span class="keyword">in</span> protocols) &#123;</span><br><span class="line">                    <span class="type">char</span> *types = methodTypesInProtocol(protocolName, selectorName, isInstance, <span class="literal">YES</span>);</span><br><span class="line">                    <span class="keyword">if</span> (!types) types = methodTypesInProtocol(protocolName, selectorName, isInstance, <span class="literal">NO</span>);</span><br><span class="line">                    <span class="keyword">if</span> (types) &#123;</span><br><span class="line">                        overrideMethod(currCls, selectorName, jsMethod, !isInstance, types);</span><br><span class="line">                        free(types);</span><br><span class="line">                        overrided = <span class="literal">YES</span>;</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 如果协议中没有找到，参数、返回值全按照 id 类型生成 类型编码</span></span><br><span class="line">                <span class="keyword">if</span> (!overrided) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (![[jsMethodName substringToIndex:<span class="number">1</span>] isEqualToString:<span class="string">@&quot;_&quot;</span>]) &#123;</span><br><span class="line">                        <span class="comment">// 第一个 @，代表返回值是 id 类型、第二个 @，代表 id 类型参数 self、第三个 : 代表 SEL 类型参数 _cmd</span></span><br><span class="line">                        <span class="built_in">NSMutableString</span> *typeDescStr = [<span class="string">@&quot;@@:&quot;</span> mutableCopy];</span><br><span class="line">                        <span class="comment">// 其余参数全按照 id 类型处理</span></span><br><span class="line">                        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; numberOfArg; i ++) &#123;</span><br><span class="line">                            [typeDescStr appendString:<span class="string">@&quot;@&quot;</span>];</span><br><span class="line">                        &#125;</span><br><span class="line">                        overrideMethod(currCls, selectorName, jsMethod, !isInstance, [typeDescStr cStringUsingEncoding:<span class="built_in">NSUTF8StringEncoding</span>]);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    class_addMethod(cls, <span class="keyword">@selector</span>(getProp:), (IMP)getPropIMP, <span class="string">&quot;@@:@&quot;</span>);</span><br><span class="line">    class_addMethod(cls, <span class="keyword">@selector</span>(setProp:forKey:), (IMP)setPropIMP, <span class="string">&quot;v@:@@&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> @&#123;<span class="string">@&quot;cls&quot;</span>: className, <span class="string">@&quot;superCls&quot;</span>: superClassName&#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>简而言之，OC 中实现的 <code>defineClass</code> 主要逻辑如下：</p>
+<ul>
+<li>解析出类、方法名、类型编码等信息</li>
+<li>利用 Runtime 进行新增或替换方法</li>
+</ul>
+<p>其中，方法的动态替换是通过其 <code>overrideMethod</code> 方法实现的，其具体实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">void</span> overrideMethod(Class cls, <span class="built_in">NSString</span> *selectorName, JSValue *function, <span class="type">BOOL</span> isClassMethod, <span class="keyword">const</span> <span class="type">char</span> *typeDescription)</span><br><span class="line">&#123;</span><br><span class="line">    SEL selector = <span class="built_in">NSSelectorFromString</span>(selectorName);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (!typeDescription) &#123;</span><br><span class="line">        Method method = class_getInstanceMethod(cls, selector);</span><br><span class="line">        typeDescription = (<span class="type">char</span> *)method_getTypeEncoding(method);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 获取 OC 原方法的实现</span></span><br><span class="line">    IMP originalImp = class_respondsToSelector(cls, selector) ? class_getMethodImplementation(cls, selector) : <span class="literal">NULL</span>;</span><br><span class="line">    </span><br><span class="line">    IMP msgForwardIMP = _objc_msgForward;</span><br><span class="line">    <span class="meta">#<span class="keyword">if</span> !defined(__arm64__)</span></span><br><span class="line">        <span class="keyword">if</span> (typeDescription[<span class="number">0</span>] == <span class="string">&#x27;&#123;&#x27;</span>) &#123;</span><br><span class="line">            <span class="comment">//In some cases that returns struct, we should use the &#x27;_stret&#x27; API:</span></span><br><span class="line">            <span class="comment">//http://sealiesoftware.com/blog/archive/2008/10/30/objc_explain_objc_msgSend_stret.html</span></span><br><span class="line">            <span class="comment">//NSMethodSignature knows the detail but has no API to return, we can only get the info from debugDescription.</span></span><br><span class="line">            <span class="built_in">NSMethodSignature</span> *methodSignature = [<span class="built_in">NSMethodSignature</span> signatureWithObjCTypes:typeDescription];</span><br><span class="line">            <span class="keyword">if</span> ([methodSignature.debugDescription rangeOfString:<span class="string">@&quot;is special struct return? YES&quot;</span>].location != <span class="built_in">NSNotFound</span>) &#123;</span><br><span class="line">                msgForwardIMP = (IMP)_objc_msgForward_stret;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    <span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     把  -forwardInvocation: 方法的实现给替换掉了，如果程序里真有用到这个方法对消息进行转发，原来的逻辑怎么办？</span></span><br><span class="line"><span class="comment">     首先在替换 -forwardInvocation: 方法前会新建一个方法 -ORIGforwardInvocation:，保存原来的实现 IMP，在新的 -forwardInvocation: 实现里做了个判断，如果转发的方法是我们想改写的，就走我们的逻辑，若不是，就调 -ORIGforwardInvocation: 走原来的流程。</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">if</span> (class_getMethodImplementation(cls, <span class="keyword">@selector</span>(forwardInvocation:)) != (IMP)JPForwardInvocation) &#123;</span><br><span class="line">        <span class="comment">// 替换类 cls 中的 forwardInvocation: 方法的实现为 JPForwardInvocation</span></span><br><span class="line">        IMP originalForwardImp = class_replaceMethod(cls, <span class="keyword">@selector</span>(forwardInvocation:), (IMP)JPForwardInvocation, <span class="string">&quot;v@:@&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (originalForwardImp) &#123;</span><br><span class="line">            class_addMethod(cls, <span class="keyword">@selector</span>(ORIGforwardInvocation:), originalForwardImp, <span class="string">&quot;v@:@&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 新增一个 ORIGXXX 方法，指向原方法的实现</span></span><br><span class="line">    [cls jp_fixMethodSignature];</span><br><span class="line">    <span class="keyword">if</span> (class_respondsToSelector(cls, selector)) &#123;</span><br><span class="line">        <span class="built_in">NSString</span> *originalSelectorName = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;ORIG%@&quot;</span>, selectorName];</span><br><span class="line">        SEL originalSelector = <span class="built_in">NSSelectorFromString</span>(originalSelectorName);</span><br><span class="line">        <span class="keyword">if</span>(!class_respondsToSelector(cls, originalSelector)) &#123;</span><br><span class="line">            class_addMethod(cls, originalSelector, originalImp, typeDescription);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">NSString</span> *JPSelectorName = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;_JP%@&quot;</span>, selectorName];</span><br><span class="line">    </span><br><span class="line">    _initJPOverideMethods(cls);</span><br><span class="line">    _JSOverideMethods[cls][JPSelectorName] = function;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     通过 class_replaceMethod() 接口将原方法直接指向 _objc_msgForward，使调用方法的时候，直接走消息转发流程，这样调用这个方法时就会走到 -forwardInvocation:</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    class_replaceMethod(cls, selector, msgForwardIMP, typeDescription);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>overrideMethod</code> 逻辑总结如下：</p>
+<ul>
+<li><p>先替换 <code>forwardInvocation:</code> 实现，替换成 <code>JPForwardInvocation</code></p>
+<ul>
+<li>同时将原保存到 <code>forwardInvocation:</code> 实现保存到 <code>ORIGforwardInvocation:</code></li>
+<li>执行 <code>JPForwardInvocation</code> 时，如果没有找到对应 JS 方法，则走原始转发流程，执行 <code>ORIGforwardInvocation:</code></li>
+</ul>
+</li>
+<li><p>添加 <code>-ORIGXXXXX</code> 和 <code>-_JPXXXXX</code> 两个方法，前者指向原来的 IMP 实现，后者是 JS 热修复代码中的新实现。</p>
+<ul>
+<li>如果热修复代码需要调用原方法，可以在方法名前拼上 ORIG 去调用，因为这一步保存了方法原实现 <code>-ORIGXXXXX</code></li>
+</ul>
+</li>
+<li><p>将原方法实现指向 <code>_objc_msgForward</code>，使方法直接走消息转发流程。</p>
+</li>
+<li><p>在 <code>JPForwardInvocation</code> 里，获取 <code>Invocation</code>  参数，传给 <code>-_JPXXXXX</code> 方法并执行，实现了 JS 方法替换 OC 方法。</p>
+</li>
+</ul>
+<p>该流程可用下图表示：<br><img src="/images/lix_blog_186.png"></p>
+<h3 id="2、JavaScriptCore-执行-OC-方法"><a href="#2、JavaScriptCore-执行-OC-方法" class="headerlink" title="2、JavaScriptCore 执行 OC 方法"></a>2、JavaScriptCore 执行 OC 方法</h3><p>还以前面的热修复代码为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">defineClass(&#x27;JPViewController&#x27;, &#123;</span><br><span class="line">  handleBtn: function(sender) &#123;</span><br><span class="line">    var tableViewCtrl = JPTableViewController.alloc().init()</span><br><span class="line">    self.navigationController().pushViewController_animated(tableViewCtrl, YES)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>上述 JS 实现的热修复代码中，有类似 <code>alloc</code>、<code>init</code> 等 OC 方法的调用，而在 JS 中，是不存在这些方法的，如果想要 JS 代码执行不报错，就需要保证这些方法在 JS 中正常被调用。</p>
+<p>实际上，在 <code>JPEngine</code> 中执行 JS 代码时，逻辑如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">+ (JSValue *)_evaluateScript:(<span class="built_in">NSString</span> *)script withSourceURL:(<span class="built_in">NSURL</span> *)resourceURL</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (!script || ![JSContext <span class="keyword">class</span>]) &#123;</span><br><span class="line">        _exceptionBlock(<span class="string">@&quot;script is nil&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    [<span class="keyword">self</span> startEngine];</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (!_regex) &#123;</span><br><span class="line">        _regex = [<span class="built_in">NSRegularExpression</span> regularExpressionWithPattern:_regexStr options:<span class="number">0</span> error:<span class="literal">nil</span>];</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     1、正则匹配找到热修复 JS 代码中的所有方法调用，改成调用 __c()</span></span><br><span class="line"><span class="comment">     UIView.alloc().init()  -&gt;  UIView.__c(&#x27;alloc&#x27;)().__c(&#x27;init&#x27;)()</span></span><br><span class="line"><span class="comment">     object.methodName(param1, param2); -&gt;  object.__c(&quot;methodName&quot;)(param1, param2);</span></span><br><span class="line"><span class="comment">    </span></span><br><span class="line"><span class="comment">     2、将修改后的 JS 放到 try catch 中</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">NSString</span> *formatedScript = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;;(function()&#123;try&#123;\n%@\n&#125;catch(e)&#123;_OC_catch(e.message, e.stack)&#125;&#125;)();&quot;</span>, [_regex stringByReplacingMatchesInString:script options:<span class="number">0</span> range:<span class="built_in">NSMakeRange</span>(<span class="number">0</span>, script.length) withTemplate:_replaceStr]];</span><br><span class="line">    </span><br><span class="line">    </span><br><span class="line">    <span class="keyword">@try</span> &#123;</span><br><span class="line">        <span class="comment">// 3、执行热修复 JS</span></span><br><span class="line">        <span class="keyword">if</span> ([_context respondsToSelector:<span class="keyword">@selector</span>(evaluateScript:withSourceURL:)]) &#123;</span><br><span class="line">            <span class="keyword">return</span> [_context evaluateScript:formatedScript withSourceURL:resourceURL];</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> [_context evaluateScript:formatedScript];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">@catch</span> (<span class="built_in">NSException</span> *exception) &#123;</span><br><span class="line">        _exceptionBlock([<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;%@&quot;</span>, exception]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在执行 JS 代码之前，JSPatch 使用正则找到了所有方法的调用，将方法的调用改成 <code>__c</code> 函数的调用，并放到 try catch 中，例如前面热修复代码，经过这一步之后，会变成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">;(function()&#123;try&#123;</span><br><span class="line">defineClass(&#x27;JPViewController&#x27;, &#123;</span><br><span class="line">  handleBtn: function(sender) &#123;</span><br><span class="line">    var tableViewCtrl = JPTableViewController.__c(&quot;alloc&quot;)().__c(&quot;init&quot;)()</span><br><span class="line">    self.__c(&quot;navigationController&quot;)().__c(&quot;pushViewController_animated&quot;)(tableViewCtrl, YES)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)</span><br><span class="line">&#125;catch(e)&#123;_OC_catch(e.message, e.stack)&#125;&#125;)();</span><br></pre></td></tr></table></figure>
+
+<p>JSPatch 通过正则把所有方法调用都改成调用 <code>__c()</code> 函数，再执行这个 JS 脚本，达到类似 OC&#x2F;Lua&#x2F;Ruby 等的消息转发的目的。</p>
+<p><code>__c</code> 函数实现方式：在 JSPatch.js 中，给 JS 对象基类 Object 加上 <code>__c</code> 成员，这样所有对象都可以调用到<code> __c</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Object.defineProperty(Object.prototype, &#x27;__c&#x27;, &#123;value: function(methodName) &#123;</span><br><span class="line">  if (!this.__obj &amp;&amp; !this.__clsName) return this[methodName].bind(this);</span><br><span class="line">  var self = this</span><br><span class="line">  return function()&#123;</span><br><span class="line">    var args = Array.prototype.slice.call(arguments)</span><br><span class="line">    return _methodFunc(self.__obj, self.__clsName, methodName, args, self.__isSuper)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;&#125;)</span><br></pre></td></tr></table></figure>
+<p>在上述的 <code>_methodFunc()</code> 中，把相关信息传给 OC，OC 再利用 Runtime 去调用相应方法，返回结果值。这样就达到了 JS 调用任意 OC 方法的目的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">var _methodFunc = function(instance, clsName, methodName, args, isSuper, isPerformSelector) &#123;</span><br><span class="line">  var selectorName = methodName</span><br><span class="line">  if (!isPerformSelector) &#123;</span><br><span class="line">    methodName = methodName.replace(/__/g, &quot;-&quot;)</span><br><span class="line">    selectorName = methodName.replace(/_/g, &quot;:&quot;).replace(/-/g, &quot;_&quot;)</span><br><span class="line">    var marchArr = selectorName.match(/:/g)</span><br><span class="line">    var numOfArgs = marchArr ? marchArr.length : 0</span><br><span class="line">    if (args.length &gt; numOfArgs) &#123;</span><br><span class="line">      selectorName += &quot;:&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  var ret = instance ? _OC_callI(instance, selectorName, args, isSuper):</span><br><span class="line">                       _OC_callC(clsName, selectorName, args)</span><br><span class="line">  return _formatOCToJS(ret)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在 <code>_methodFunc()</code> 中，通过 <code>_OC_callI</code>&#x2F;<code>_OC_callC</code> 调用具体 OC 方法，<code>_OC_callI</code>&#x2F;<code>_OC_callC</code> 会执行 OC 实现的 <code>callSelector</code>，在 <code>callSelector</code> 中利用 Runtime 去调用相应方法，返回结果值给到 JS。这样就达到了 JS 调用任意 OC 方法的目的：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">context[<span class="string">@&quot;_OC_callI&quot;</span>] = ^<span class="type">id</span>(JSValue *obj, <span class="built_in">NSString</span> *selectorName, JSValue *arguments, <span class="type">BOOL</span> isSuper) &#123;</span><br><span class="line">    <span class="keyword">return</span> callSelector(<span class="literal">nil</span>, selectorName, arguments, obj, isSuper);</span><br><span class="line">&#125;;</span><br><span class="line">context[<span class="string">@&quot;_OC_callC&quot;</span>] = ^<span class="type">id</span>(<span class="built_in">NSString</span> *className, <span class="built_in">NSString</span> *selectorName, JSValue *arguments) &#123;</span><br><span class="line">    <span class="keyword">return</span> callSelector(className, selectorName, arguments, <span class="literal">nil</span>, <span class="literal">NO</span>);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>该过程总结如下：</p>
+<ul>
+<li>通过正则替换方法的调用：在执行 JS 代码之前，JSPatch 使用正则匹配找到所有方法的调用，并将其替换为调用 <code>__c</code> 函数。<ul>
+<li><code>object.methodName(param1, param2);</code> -&gt; <code>object.__c(&quot;methodName&quot;)(param1, param2);</code></li>
+</ul>
+</li>
+<li><code>__c</code> 函数的实现： 在 JSPatch.js 中，给 JS 对象基类 Object 添加 <code>__c</code> 成员函数，这样所有对象都可以调用到 <code>__c</code>，在 <code>__c</code> 中会调用 <code>_methodFunc</code> 函数。</li>
+<li><code>_methodFunc</code> 函数：负责处理具体的方法调用信息，通过 <code>_OC_callI</code> 和 <code>_OC_callC</code> 传递方法调用信息。</li>
+<li><code>_OC_callI</code>&#x2F;<code>_OC_callC</code>：<code>JSEngine</code> 注入的方法，实际调用的是 OC 实现的 c<code>allSelector</code>。</li>
+<li><code>callSelector</code>：利用 <code>Runtime</code> 执行方法，并将返回值返回给 JS。</li>
+</ul>
+<h3 id="3、JS-与-OC-数据传递"><a href="#3、JS-与-OC-数据传递" class="headerlink" title="3、JS 与 OC 数据传递"></a>3、JS 与 OC 数据传递</h3><p>还以前面示例为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">;(function()&#123;try&#123;</span><br><span class="line">defineClass(&#x27;JPViewController&#x27;, &#123;</span><br><span class="line">  handleBtn: function(sender) &#123;</span><br><span class="line">    var tableViewCtrl = JPTableViewController.__c(&quot;alloc&quot;)().__c(&quot;init&quot;)()</span><br><span class="line">    self.__c(&quot;navigationController&quot;)().__c(&quot;pushViewController_animated&quot;)(tableViewCtrl, YES)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;)</span><br><span class="line">&#125;catch(e)&#123;_OC_catch(e.message, e.stack)&#125;&#125;)();</span><br></pre></td></tr></table></figure>
+<p>上述实现有两个方向的数据传递：</p>
+<ul>
+<li><p><strong>OC -&gt; JS</strong></p>
+<ul>
+<li>JS 调用 OC ，获取 OC 返回值：<ul>
+<li><code>var tableViewCtrl = JPTableViewController.__c(&quot;alloc&quot;)().__c(&quot;init&quot;)()</code></li>
+<li><code>tableViewCtrl</code> 为 OC 返回给 JS 的数据。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>JS -&gt; OC</strong></p>
+<ul>
+<li>JS 获取到 OC 返回值后，再调用 OC 方法转给 OC：<ul>
+<li><code>self.__c(&quot;navigationController&quot;)().__c(&quot;pushViewController_animated&quot;)(tableViewCtrl, YES)</code></li>
+<li><code>tableViewCtrl</code>、<code>YES</code> 为 JS 传给 OC 的数据。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="（1）OC-JS-数据传递"><a href="#（1）OC-JS-数据传递" class="headerlink" title="（1）OC -&gt; JS 数据传递"></a>（1）OC -&gt; JS 数据传递</h4><p>前面已经提到，JS 的 <code>__c</code> 函数实际上是调用 <code>_methodFunc()</code>，<code>_methodFunc()</code> 实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">var _methodFunc = function(instance, clsName, methodName, args, isSuper, isPerformSelector) &#123;</span><br><span class="line">  var selectorName = methodName</span><br><span class="line">  if (!isPerformSelector) &#123;</span><br><span class="line">    methodName = methodName.replace(/__/g, &quot;-&quot;)</span><br><span class="line">    selectorName = methodName.replace(/_/g, &quot;:&quot;).replace(/-/g, &quot;_&quot;)</span><br><span class="line">    var marchArr = selectorName.match(/:/g)</span><br><span class="line">    var numOfArgs = marchArr ? marchArr.length : 0</span><br><span class="line">    if (args.length &gt; numOfArgs) &#123;</span><br><span class="line">      selectorName += &quot;:&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  var ret = instance ? _OC_callI(instance, selectorName, args, isSuper):</span><br><span class="line">                       _OC_callC(clsName, selectorName, args)</span><br><span class="line">  return _formatOCToJS(ret)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，<code>_methodFunc()</code> 中主要逻辑是获取获取具体方法调用信息以及具体参数，再去调用<code> _OC_callI</code>、<code>_OC_callC</code>，<code>_OC_callI</code>、<code>_OC_callC</code> 最终都会走进 OC 的 <code>callSelector</code> 中：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">context[<span class="string">@&quot;_OC_callI&quot;</span>] = ^<span class="type">id</span>(JSValue *obj, <span class="built_in">NSString</span> *selectorName, JSValue *arguments, <span class="type">BOOL</span> isSuper) &#123;</span><br><span class="line">    <span class="keyword">return</span> callSelector(<span class="literal">nil</span>, selectorName, arguments, obj, isSuper);</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">context[<span class="string">@&quot;_OC_callC&quot;</span>] = ^<span class="type">id</span>(<span class="built_in">NSString</span> *className, <span class="built_in">NSString</span> *selectorName, JSValue *arguments) &#123;</span><br><span class="line">    <span class="keyword">return</span> callSelector(className, selectorName, arguments, <span class="literal">nil</span>, <span class="literal">NO</span>);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>callSelector</code> 逻辑伪代码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">id</span> callSelector(<span class="built_in">NSString</span> *className, <span class="built_in">NSString</span> *selectorName, JSValue *arguments, JSValue *instance, <span class="type">BOOL</span> isSuper)</span><br><span class="line">&#123;</span><br><span class="line">        </span><br><span class="line">    invocation = ...</span><br><span class="line">    [invocation setTarget:xxxx];</span><br><span class="line">    </span><br><span class="line">    <span class="type">id</span> argumentsObj = formatJSToOC(arguments);</span><br><span class="line">    </span><br><span class="line">    <span class="built_in">NSMethodSignature</span> *methodSignature = ......;</span><br><span class="line">    <span class="built_in">NSUInteger</span> numberOfArguments = methodSignature.numberOfArguments;</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="built_in">NSUInteger</span> i = <span class="number">2</span>; i &lt; numberOfArguments; i++) &#123;</span><br><span class="line">        <span class="keyword">const</span> <span class="type">char</span> *argumentType = [methodSignature getArgumentTypeAtIndex:i];</span><br><span class="line">        <span class="type">id</span> valObj = argumentsObj[i<span class="number">-2</span>];</span><br><span class="line">        <span class="comment">// 根据 argumentType 将 valObj 转成对应的类型</span></span><br><span class="line">        value = covert(valObj);</span><br><span class="line">        [invocation setArgument:&amp;value atIndex:i];</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="type">void</span> *result;</span><br><span class="line">    [invocation getReturnValue:&amp;result];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> formatOCToJS(returnValue);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，在 <code>callSelector</code> 中，执行完 OC 方法，会将 OC 方法返回值，调用 OC 中实现的 <code>formatOCToJS</code> 进行处理后再返回给 JS。</p>
+<p><code>formatOCToJS</code> 的作用就是将传入的 OC 对象包装成一个 <code>NSDictionary</code>：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="type">id</span> formatOCToJS(<span class="type">id</span> obj)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> ([obj isKindOfClass:[<span class="built_in">NSString</span> <span class="keyword">class</span>]] || [obj isKindOfClass:[<span class="built_in">NSDictionary</span> <span class="keyword">class</span>]] || [obj isKindOfClass:[<span class="built_in">NSArray</span> <span class="keyword">class</span>]] || [obj isKindOfClass:[<span class="built_in">NSDate</span> <span class="keyword">class</span>]]) &#123;</span><br><span class="line">        <span class="keyword">return</span> _autoConvert ? obj: _wrapObj([JPBoxing boxObj:obj]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> ([obj isKindOfClass:[<span class="built_in">NSNumber</span> <span class="keyword">class</span>]]) &#123;</span><br><span class="line">        <span class="keyword">return</span> _convertOCNumberToString ? [(<span class="built_in">NSNumber</span>*)obj stringValue] : obj;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> ([obj isKindOfClass:<span class="built_in">NSClassFromString</span>(<span class="string">@&quot;NSBlock&quot;</span>)] || [obj isKindOfClass:[JSValue <span class="keyword">class</span>]]) &#123;</span><br><span class="line">        <span class="keyword">return</span> obj;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     将  obj 包装成字典</span></span><br><span class="line"><span class="comment">     字典主要有两个 key:</span></span><br><span class="line"><span class="comment">     __obj：当前对象</span></span><br><span class="line"><span class="comment">     __clsName：对象对应的 class 字符串</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">return</span> _wrapObj(obj);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中 <code>_wrapObj</code> 实现如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="built_in">NSDictionary</span> *_wrapObj(<span class="type">id</span> obj)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (!obj || obj == _nilObj) &#123;</span><br><span class="line">        <span class="keyword">return</span> @&#123;<span class="string">@&quot;__isNil&quot;</span>: @(<span class="literal">YES</span>)&#125;;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> @&#123;<span class="string">@&quot;__obj&quot;</span>: obj, <span class="string">@&quot;__clsName&quot;</span>: <span class="built_in">NSStringFromClass</span>([obj isKindOfClass:[JPBoxing <span class="keyword">class</span>]] ? [[((JPBoxing *)obj) unbox] <span class="keyword">class</span>]: [obj <span class="keyword">class</span>])&#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>字典中至少保存了两个信息：</p>
+<ul>
+<li><code>__obj</code><ul>
+<li>对象实例</li>
+</ul>
+</li>
+<li><code>__clsName</code><ul>
+<li>ClassName 字符串</li>
+</ul>
+</li>
+</ul>
+<p>这样 JS 中就可以通过判断对象是否有 <code>__obj</code> 属性得知这个对象是否表示 OC 对象指针。</p>
+<p>该过程总结如下：</p>
+<ul>
+<li><p>如果是 <code>NSString</code>、<code>NSDictionary</code>、<code>NSArray</code> 类型，则先将 <code>obj</code> 包装成 <code>JPBoxing</code>，再调用 <code>_wrapObj</code> 将 <code>JPBoxing</code> 包装成字典。</p>
+<ul>
+<li><code>NSMutableArray</code>&#x2F;<code>NSMutableDictionary</code>&#x2F;<code>NSMutableString</code> 从 OC 传到 JS 时，<code>JavaScriptCore</code> 把它们转成了 JS 的 <code>Array</code>&#x2F;<code>Object</code>&#x2F;<code>String</code>，再回传给 OC 时，OC 收到的不再是 NSMutableXXX，脱离了跟原对象的联系，导致在 JS 中无法调用三者可变对象中的方法去修改对象，解决办法是：<ul>
+<li>如果对象是 NSMutableXXX，就先将对象保存到 <code>JPBoxing</code>，JS 拿到的是 <code>JPBoxing</code>，从 JS 再传回给 OC 时就可以通过 <code>JPBoxing</code> 对象成员取到原始对象。</li>
+<li>为了规则简单，JSPatch 让 <code>NSArray</code>&#x2F;<code>NSDictionary</code>&#x2F;<code>NSString</code> 也同样以封装的方式传递，避免在调用 OC 方法返回对象时还需要关心它返回的是可变还是不可变对象。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>如果是其他普通 OC 对象，直接调用 <code>_wrapObj</code> 包装成字典。</p>
+</li>
+<li><p>JS 中通过判断对象是否有 <code>__obj</code> 属性得知这个对象是否表示 OC 对象指针。</p>
+<ul>
+<li>OC 的字典传到 JS，就变成 JS 的对象 Object 类型。</li>
+</ul>
+</li>
+</ul>
+<h4 id="（2）JS-OC-数据传递"><a href="#（2）JS-OC-数据传递" class="headerlink" title="（2）JS -&gt; OC 数据传递"></a>（2）JS -&gt; OC 数据传递</h4><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">var tableViewCtrl = JPTableViewController.__c(&quot;alloc&quot;)().__c(&quot;init&quot;)()</span><br><span class="line">self.__c(&quot;navigationController&quot;)().__c(&quot;pushViewController_animated&quot;)(tableViewCtrl, YES)</span><br></pre></td></tr></table></figure>
+<p>上述 <code>tableViewCtrl</code> 是调用 JS 调用 OC 获取的返回值，即调用 <code>_methodFunc</code> 的返回值：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">var _methodFunc = function(instance, clsName, methodName, args, isSuper, isPerformSelector) &#123;</span><br><span class="line"></span><br><span class="line">  // 省略 ......</span><br><span class="line"></span><br><span class="line">  var ret = instance ? _OC_callI(instance, selectorName, args, isSuper):</span><br><span class="line">                       _OC_callC(clsName, selectorName, args)</span><br><span class="line">  return _formatOCToJS(ret)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>_methodFunc</code> 中，在获取到 OC 返回值的时候，会调用 JS 函数 <code>_formatOCToJS</code> 对返回值进行处理，JS 中的 <code>_formatOCToJS</code> 实现如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">var _formatOCToJS = function(obj) &#123;</span><br><span class="line">  if (obj === undefined || obj === null) return false</span><br><span class="line"></span><br><span class="line">  if (typeof obj == &quot;object&quot;) &#123;</span><br><span class="line">    /**</span><br><span class="line">     * OC 返回给 JS 的字典（OC 对象保存到字典的 __obj 中），到 JS 里就会自动变成 JS 的 Object</span><br><span class="line">     * 如果有 __obj 标志，就代表是 OC 对象，取出 OC 对象返回</span><br><span class="line">     */</span><br><span class="line">    if (obj.__obj) return obj</span><br><span class="line">    if (obj.__isNil) return false</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  // 如果 obj 是一个数组，则递归地调用 _formatOCToJS 处理数组中的每一个元素，并返回新的数组。</span><br><span class="line">  if (obj instanceof Array) &#123;</span><br><span class="line">    var ret = []</span><br><span class="line">    obj.forEach(function(o) &#123;</span><br><span class="line">      ret.push(_formatOCToJS(o))</span><br><span class="line">    &#125;)</span><br><span class="line">    return ret</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  // 省略 ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，参数 <code>tableViewCtrl</code> 在传给 OC 之前，就已经从 OC 传递的字典中解析出原始对象，再将解析出原始对象传给 OC。<br>即：JS 传给 OC 的对象，是 OC 原始对象。</p>
+<p><strong>JS 与 OC 数据流转可用下图表示：</strong><br><img src="/images/lix_blog_187.png"></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#源码" >
+    <span class="tag-code">源码</span>
+  </a>
+
+  <a href="/tags#热修复" >
+    <span class="tag-code">热修复</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/20895/">
+        <span class="nav-arrow">← </span>
+        
+          编译原理之 Lex &amp; Yacc
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/62814/">
+        
+          热修复之 MangoFix 实现原理
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/48084/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

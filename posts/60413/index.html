@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、NSObject 对象1、NSObject 的底层实现我们在 iOS 开发过程中，所编写的 Objective-C 代码，其底层实现都是使用的 C\C++ 代码，所以 Objective-C 的面向对象都是基于 C\C++ 的数据结构实现的。 例如，对于以下代码（main.m）： 12345678#import &lt;Foundation&#x2F;Foundation.h&gt;int main(i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OC 对象一探究竟之一：对象的底层实现">
+<meta property="og:url" content="https://www.lixkit.com/posts/60413/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、NSObject 对象1、NSObject 的底层实现我们在 iOS 开发过程中，所编写的 Objective-C 代码，其底层实现都是使用的 C\C++ 代码，所以 Objective-C 的面向对象都是基于 C\C++ 的数据结构实现的。 例如，对于以下代码（main.m）： 12345678#import &lt;Foundation&#x2F;Foundation.h&gt;int main(i">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_0.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_1.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_2.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_3.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_4.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_5.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_6.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_7.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_9.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_10.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_11.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_12.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_13.png">
+<meta property="article:published_time" content="2019-11-21T08:43:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.901Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="isa">
+<meta property="article:tag" content="对象">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_0.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      OC 对象一探究竟之一：对象的底层实现 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>OC 对象一探究竟之一：对象的底层实现</h2>
+  <p class="post-date">2019-11-21</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、NSObject-对象"><a href="#一、NSObject-对象" class="headerlink" title="一、NSObject 对象"></a>一、NSObject 对象</h2><h3 id="1、NSObject-的底层实现"><a href="#1、NSObject-的底层实现" class="headerlink" title="1、NSObject 的底层实现"></a>1、NSObject 的底层实现</h3><p>我们在 iOS 开发过程中，所编写的 Objective-C 代码，其底层实现都是使用的 C\C++ 代码，所以 Objective-C 的面向对象都是基于 C\C++ 的数据结构实现的。</p>
+<p>例如，对于以下代码（main.m）：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#import <span class="string">&lt;Foundation/Foundation.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> main(<span class="type">int</span> argc, <span class="keyword">const</span> <span class="type">char</span> * argv[]) &#123;</span><br><span class="line">    <span class="keyword">@autoreleasepool</span> &#123;</span><br><span class="line">        <span class="built_in">NSObject</span> *obj = [[<span class="built_in">NSObject</span> alloc] init];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们进到 NSObject.h 可以看到 NSObject 的结构如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">NSObject</span> &lt;<span class="title">NSObject</span>&gt; </span>&#123;</span><br><span class="line">    Class isa;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们可以使用以下命令将 Objective-C 代码（main.m）转换为 C\C++ 代码（main.cpp）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">clang -rewrite-objc main.m</span><br></pre></td></tr></table></figure>
+<p>(等价于：<code>clang -rewrite-objc main.m -o main.cpp</code>)</p>
+<p>但是有些 OC 代码要转成 C&#x2F;C++ 代码时，在真机、模拟器、不同架构之间可能会存在较大差异。所以可以结合 xcrun 命令指定真机以及架构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc main.m  -o main.cpp</span><br></pre></td></tr></table></figure>
+
+<p>在使用 clang 转换 OC 为 C++ 代码时，可能会遇到以下问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cannot create __weak reference in file using manual reference</span><br></pre></td></tr></table></figure>
+<p>解决方案：指定支持 ARC、运行时系统版本，比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xcrun -sdk iphoneos clang -arch arm64 -rewrite-objc -fobjc-arc -fobjc-runtime=ios-8.0.0 main.m  -o  main.cpp</span><br></pre></td></tr></table></figure>
+
+<p>转换成 cpp 文件之后，我们可以找到 NSObject 的实现：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="built_in">NSObject_IMPL</span> &#123;</span><br><span class="line">	Class isa;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_0.png"><br>由此，我们可以确定，<font color=#ff0000>NSObject 对象，实际上就是 C&#x2F;C++ 的结构体。</font></p>
+<p>在上面 NSObject_IMPL 结构体中，有一个 Class 类型的成员 isa，那么 Class 又是什么呢？我们可以在我们生成的 main.cpp 中看到：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> objc_class *Class;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/lix_blog_1.png"><br>所以，<font color=#ff0000>Class 是指向 objc_class 结构体的指针。</font></p>
+<h3 id="2、对象的分类"><a href="#2、对象的分类" class="headerlink" title="2、对象的分类"></a>2、对象的分类</h3><p>对象主要有以下类型：instance 对象、class 对象、meta-class 对象</p>
+<h4 id="1-instance-对象"><a href="#1-instance-对象" class="headerlink" title="(1) instance 对象"></a>(1) instance 对象</h4><p>instance 对象即实例对象，也是开发者接触最多的一个对象。<font color=#ff0000>实例对象中不存储方法，只存储成员变量。</font>instance 在内存中存储了如下信息：</p>
+<ul>
+<li>isa 指针</li>
+<li>其他成员变量</li>
+</ul>
+<p>isa 指针在 instance 对象中所有成员变量的第一位，是第一个成员变量。所以，isa 指针在内存中的地址就是当前 instance 对象的地址。</p>
+<p>instance 对象中没有存储方法，方法实际上存储在 class 对象和 meta-class 对象中的。class 对象中存储了实例方法，meta-class 对象中存储了类方法。</p>
+<p>为什么 instance 对象中不存储方法？原因很简单，一个类可能会被创建无数个实例对象，每个实例对象中都存储一份相同的方法信息，是对内存的一种浪费。而对于成员变量来说，每个实例对象的成员变量可能被赋不同值，所以是必须每个实例对象要存储自己的成员变量信息。</p>
+<h4 id="2-class-对象"><a href="#2-class-对象" class="headerlink" title="(2) class 对象"></a>(2) class 对象</h4><p>class 对象即类对象，每个类在内存中有且只有一个 class 对象，创建类对象的方法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Class classObject1 = [instanceObject <span class="keyword">class</span>];</span><br><span class="line">Class classObject2 = object_getClass(instanceObject);</span><br><span class="line">Class classObject3 = [<span class="built_in">NSObject</span> <span class="keyword">class</span>];</span><br></pre></td></tr></table></figure>
+<p>对于同一个 Class 类型，创建出来的所有 class 对象实际上都是同一个，可以验证一下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">NSObject</span> *instanceObject1 = [[<span class="built_in">NSObject</span> alloc] init];</span><br><span class="line"><span class="built_in">NSObject</span> *instanceObject2 = [[<span class="built_in">NSObject</span> alloc] init];</span><br><span class="line"></span><br><span class="line">Class classObject1 = [instanceObject1 <span class="keyword">class</span>];</span><br><span class="line">Class classObject2 = [instanceObject2 <span class="keyword">class</span>];</span><br><span class="line">Class classObject3 = object_getClass(instanceObject1); <span class="comment">// 接收的参数是实例对象</span></span><br><span class="line">Class classObject4 = object_getClass(instanceObject2);<span class="comment">// 接收的参数是实例对象</span></span><br><span class="line">Class classObject5 = [<span class="built_in">NSObject</span> <span class="keyword">class</span>];</span><br><span class="line"></span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;instanceObject1=%p\ninstanceObject2=%p&quot;</span>,</span><br><span class="line">      instanceObject1,</span><br><span class="line">      instanceObject2);</span><br><span class="line"></span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;classObject1=%p\nclassObject2=%p\nclassObject3=%p\nclassObject4=%p\nclassObject5=%p&quot;</span>,</span><br><span class="line">      classObject1,</span><br><span class="line">      classObject2,</span><br><span class="line">      classObject3,</span><br><span class="line">      classObject4,</span><br><span class="line">      classObject5);</span><br></pre></td></tr></table></figure>
+
+<p>打印结果：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">instanceObject1=<span class="number">0x100507f30</span></span><br><span class="line">instanceObject2=<span class="number">0x100507f40</span></span><br><span class="line">classObject1=<span class="number">0x7fff915dc118</span></span><br><span class="line">classObject2=<span class="number">0x7fff915dc118</span></span><br><span class="line">classObject3=<span class="number">0x7fff915dc118</span></span><br><span class="line">classObject4=<span class="number">0x7fff915dc118</span></span><br><span class="line">classObject5=<span class="number">0x7fff915dc118</span></span><br></pre></td></tr></table></figure>
+<p>可以发现，<font color=#ff0000>创建的多个 class 对象，内存地址都是一样的。</font></p>
+<p>class 对象在内存中主要存储了如下信息：</p>
+<ul>
+<li><font color=#ff0000>isa 指针</font></li>
+<li><font color=#ff0000>superclass 指针</font></li>
+<li>类的属性信息（@property）、类的<font color=#ff0000>对象方法</font>信息（instance method）</li>
+<li>类的协议信息（protocol）、类的成员变量信息（ivar）</li>
+<li>……</li>
+</ul>
+<p>此处的类的成员变量信息指的是：成员变量的描述信息(类型、变量名等)</p>
+<p>这里需要注意的是，其中存储的方法信息为对象方法信息，而不是类方法信息。对象的方法并没有直接存储于对象的结构体中，是因为如果每一个对象都保存了自己能执行的方法，那么对内存的占用有极大的影响。</p>
+<h4 id="3-meta-class-对象"><a href="#3-meta-class-对象" class="headerlink" title="(3) meta-class 对象"></a>(3) meta-class 对象</h4><p>meta-class 对象即元类对象，每个类在内存中有且只有一个 meta-class 对象，创建 meta-class 对象方法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Class metaClassObject = object_getClass(classObject); <span class="comment">// 接收的参数是类对象</span></span><br></pre></td></tr></table></figure>
+<p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Class metaClassObject = object_getClass([<span class="built_in">NSObject</span> <span class="keyword">class</span>]);</span><br></pre></td></tr></table></figure>
+<p>meta-class 对象和 class 对象的内存结构是一样的，只不过跟 class 对象相比有些字段是空的，例如属性信息、对象方法信息等这些相应字段 value 是空的。<br>meta-class 对象在内存中存储的信息主要包括：</p>
+<ul>
+<li><font color=#ff0000>isa 指针</font></li>
+<li><font color=#ff0000>superclass 指针</font></li>
+<li>类的<font color=#ff0000>类方法</font>信息（class method）</li>
+<li>……</li>
+</ul>
+<p>类方法就存储在 meta-class 对象中。</p>
+<h2 id="二、isa-指针和-superclass-指针"><a href="#二、isa-指针和-superclass-指针" class="headerlink" title="二、isa 指针和 superclass 指针"></a>二、isa 指针和 superclass 指针</h2><h3 id="1、isa-指针"><a href="#1、isa-指针" class="headerlink" title="1、isa 指针"></a>1、isa 指针</h3><p>根据前面内容可以知道，当我们创建了一个 instance 对象时，instance 对象中存储了成员变量，对象方法存储在对应的 class 对象中，类方法存储在对应的 meta-class 对象中。当我们调用这个 instance 对象的对象方法或者类方法时，肯定就需要某种机制，将这些相应的对象关联起来，以保证可以正常调用到对应方法，这就是 isa 指针的作用。<br><img src="/images/lix_blog_2.png"></p>
+<ul>
+<li><p><font color=#ff0000>instance 的 isa 指向 class</font><br>当调用对象方法时，通过 instance 的 isa 找到 class，最后找到对象方法的实现进行调用。</p>
+</li>
+<li><p><font color=#ff0000>class 的 isa 指向 meta-class</font><br>当调用类方法时，通过 class 的 isa 找到 meta-class，最后找到类方法的实现进行调用。</p>
+</li>
+</ul>
+<h3 id="2、superclass-指针"><a href="#2、superclass-指针" class="headerlink" title="2、superclass 指针"></a>2、superclass 指针</h3><h4 id="1-class-对象的-superclass-指针"><a href="#1-class-对象的-superclass-指针" class="headerlink" title="(1) class 对象的 superclass 指针"></a>(1) class 对象的 superclass 指针</h4><p>对于 superclass 指针，假设有下面两个类：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Person 继承自 NSObject</span></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Person</span> : <span class="title">NSObject</span></span></span><br><span class="line"><span class="keyword">@end</span> </span><br><span class="line"></span><br><span class="line"><span class="comment">// Student 继承自 Person</span></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Student</span> : <span class="title">Person</span></span></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+
+<p>这时候会存在 3 个主要的 class 对象：Student、Person、NSObject，假设这时候，Student 的 instance 对象想要调用 Person 的某个对象方法时，对象是如何找到 Person 以及对应的对象方法呢？根据 superclass 名字也很容易猜到，superclass 指针指向自己父类的 class 对象：<br><img src="/images/lix_blog_3.png"></p>
+<ul>
+<li><font color=#ff0000>instance 对象中没有 superclass 指针。</font></li>
+<li><font color=#ff0000>class 对象的 superclass 指针指向父类的 class 对象。</font></li>
+<li><font color=#ff0000>当 Student 的 instance 对象要调用 Person 的对象方法时，会先通过 isa 找到 Student 的 class，然后通过 superclass 找到 Person 的 class，最后找到对象方法的实现进行调用。</font></li>
+</ul>
+<h4 id="2-meta-class-对象的-superclass-指针"><a href="#2-meta-class-对象的-superclass-指针" class="headerlink" title="(2) meta-class 对象的 superclass 指针"></a>(2) meta-class 对象的 superclass 指针</h4><p>还以上面 Student 、Person 为例，如果 Student 的 class 要调用 Person 的类方法时，那如何找到对应方法呢？<br><img src="/images/lix_blog_4.png"><br>meta-class 对象的 superclass 指针指向父类的 meta-class 对象，当 Student 的 class 要调用 Person 的类方法时，会先通过 isa 找到 Student 的 meta-class，然后通过 superclass 找到 Person 的 meta-class，最后找到类方法的实现进行调用。</p>
+<h3 id="3、总结"><a href="#3、总结" class="headerlink" title="3、总结"></a>3、总结</h3><p><img src="/images/lix_blog_5.png"><br>上面是一个非常经典的图，从上图可知：</p>
+<ul>
+<li>在实现中，Root Class 就是 NSObject</li>
+<li>NSObject 的 meta-class 父类是 NSObject 类</li>
+<li>instance 的 isa 指向 class</li>
+<li>class 的 isa 指向 meta-class</li>
+<li>meta-class 的 isa 指向基类的 meta-class</li>
+<li>基类的 meta-class 的 isa 指向它自己</li>
+<li>class 的 superclass 指向父类的 class，如果没有父类，superclass 指针为 nil</li>
+<li>meta-class 的 superclass 指向父类的 meta-class</li>
+<li>基类的 meta-class 的 superclass 指向基类的 class</li>
+<li>instance 调用对象方法的路径：isa 找到 class，方法不存在，就通过 superclass 找父类</li>
+<li>class 调用类方法的路径：isa 找 meta-class，方法不存在，就通过 superclass 找父类</li>
+</ul>
+<h2 id="三、isa-的结构及实现"><a href="#三、isa-的结构及实现" class="headerlink" title="三、isa 的结构及实现"></a>三、isa 的结构及实现</h2><h3 id="1、isa-的结构"><a href="#1、isa-的结构" class="headerlink" title="1、isa 的结构"></a>1、isa 的结构</h3><p>在 Objc 2.0 之前，objc_class 源码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> objc_class &#123;</span><br><span class="line">    Class isa  OBJC_ISA_AVAILABILITY;</span><br><span class="line">    </span><br><span class="line"><span class="meta">#<span class="keyword">if</span> !__OBJC2__</span></span><br><span class="line">    Class super_class                                        OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="keyword">const</span> <span class="type">char</span> *name                                         OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="type">long</span> version                                             OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="type">long</span> info                                                OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="type">long</span> instance_size                                       OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="keyword">struct</span> objc_ivar_list *ivars                             OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="keyword">struct</span> objc_method_list **methodLists                    OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="keyword">struct</span> objc_cache *cache                                 OBJC2_UNAVAILABLE;</span><br><span class="line">    <span class="keyword">struct</span> objc_protocol_list *protocols                     OBJC2_UNAVAILABLE;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    </span><br><span class="line">&#125; OBJC2_UNAVAILABLE;</span><br></pre></td></tr></table></figure>
+
+<p>2006 年发布 Objc 2.0 之后，objc_class 的定义如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> objc_class *Class;</span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> objc_object *<span class="type">id</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Object</span> </span>&#123; </span><br><span class="line">    Class isa; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">NSObject</span> &lt;<span class="title">NSObject</span>&gt; </span>&#123;</span><br><span class="line">    Class isa  OBJC_ISA_AVAILABILITY;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> objc_object &#123;</span><br><span class="line">private:</span><br><span class="line">    isa_t isa;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> objc_class : objc_object &#123;</span><br><span class="line">    <span class="comment">// Class ISA;</span></span><br><span class="line">    Class superclass;</span><br><span class="line">    cache_t cache;             <span class="comment">// formerly cache pointer and vtable</span></span><br><span class="line">    class_data_bits_t bits;    <span class="comment">// class_rw_t * plus custom rr/alloc flags</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">union</span> isa_t </span><br><span class="line">&#123;</span><br><span class="line">    isa_t() &#123; &#125;</span><br><span class="line">    isa_t(uintptr_t value) : bits(value) &#123; &#125;</span><br><span class="line">    Class cls;</span><br><span class="line">    uintptr_t bits;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>objc_class 继承于 objc_object。所以在 objc_class 中也会包含 isa_t 类型的结构体 isa。至此，可以得出结论：Objective-C 中类也是一个对象。在 objc_class 中，除了 isa 之外，还有 3 个成员变量，分别是：</p>
+<ul>
+<li>super_class<br>指向当前类的父类</li>
+<li>cache<br>用于缓存指针和 vtable，加速方法的调用</li>
+<li>bits<br>就是存储类的方法、属性和遵循的协议等信息的地方</li>
+</ul>
+<p>对 objc_class 进行简化，其结构体实际上就是下面样子：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> objc_class : objc_object &#123;</span><br><span class="line">    isa_t isa;</span><br><span class="line">    Class superclass;</span><br><span class="line">    cache_t cache;</span><br><span class="line">    class_data_bits_t bits;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>前面提到 NSObject 中也有个 isa，NSObject 中 isa 与 objc_class 中 isa 关系如下图：<br><img src="/images/lix_blog_6.png"><br>objc_class 中的 isa 是 isa_t 类型的，isa_t 是一个联合体（union）</p>
+<p><strong>联合体</strong><br>联合体与结构体非常类似，主要区别在于：结构体的各个成员会占用不同的内存，互相之间没有影响；而联合体的所有成员占用同一段内存，修改一个成员会影响其余所有成员。</p>
+<p><strong>位域</strong><br>位域定义与结构定义相仿，其形式为：<br>struct 位域结构名<br>{ 位域列表 };</p>
+<p>其中位域列表的形式为：<br>类型说明符 位域名：位域长度</p>
+<p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> bits</span><br><span class="line">&#123;</span><br><span class="line">	<span class="type">int</span> a:<span class="number">8</span>;</span><br><span class="line">	<span class="type">int</span> b:<span class="number">2</span>;</span><br><span class="line">	<span class="type">int</span> c:<span class="number">6</span>;</span><br><span class="line">&#125;data;</span><br></pre></td></tr></table></figure>
+<p>说明 data 为 bits 结构体变量，共占两个字节（1 个字节存储 8 位无符号数）。其中位域 a 占 8 位，位域 b 占 2 位，位域 c 占 6 位。</p>
+<p>isa_t 的定义如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">union</span> isa_t &#123;</span><br><span class="line">    isa_t() &#123; &#125;</span><br><span class="line">    isa_t(uintptr_t value) : bits(value) &#123; &#125;</span><br><span class="line"></span><br><span class="line">    Class cls;</span><br><span class="line">    uintptr_t bits;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> defined(ISA_BITFIELD)</span></span><br><span class="line">    <span class="keyword">struct</span> &#123;</span><br><span class="line">        ISA_BITFIELD; </span><br><span class="line">    &#125;;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta"># <span class="keyword">if</span> __arm64__</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MASK        0x0000000ffffffff8ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MAGIC_MASK  0x000003f000000001ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MAGIC_VALUE 0x000001a000000001ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_BITFIELD                                                      \</span></span><br><span class="line"><span class="meta">      uintptr_t nonpointer        : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t has_assoc         : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t has_cxx_dtor      : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t shiftcls          : 33; <span class="comment">/*MACH_VM_MAX_ADDRESS 0x1000000000*/</span> \</span></span><br><span class="line"><span class="meta">      uintptr_t magic             : 6;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t weakly_referenced : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t deallocating      : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t has_sidetable_rc  : 1;                                       \</span></span><br><span class="line"><span class="meta">      uintptr_t extra_rc          : 19</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> RC_ONE   (1ULL&lt;&lt;45)</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> RC_HALF  (1ULL&lt;&lt;18)</span></span><br><span class="line"></span><br><span class="line"><span class="meta"># <span class="keyword">elif</span> __x86_64__</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MASK        0x00007ffffffffff8ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MAGIC_MASK  0x001f800000000001ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_MAGIC_VALUE 0x001d800000000001ULL</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> ISA_BITFIELD                                                        \</span></span><br><span class="line"><span class="meta">      uintptr_t nonpointer        : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t has_assoc         : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t has_cxx_dtor      : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t shiftcls          : 44; <span class="comment">/*MACH_VM_MAX_ADDRESS 0x7fffffe00000*/</span> \</span></span><br><span class="line"><span class="meta">      uintptr_t magic             : 6;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t weakly_referenced : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t deallocating      : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t has_sidetable_rc  : 1;                                         \</span></span><br><span class="line"><span class="meta">      uintptr_t extra_rc          : 8</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> RC_ONE   (1ULL&lt;&lt;56)</span></span><br><span class="line"><span class="meta">#   <span class="keyword">define</span> RC_HALF  (1ULL&lt;&lt;7)</span></span><br><span class="line"></span><br><span class="line"><span class="meta"># <span class="keyword">else</span></span></span><br><span class="line"><span class="meta">#   <span class="keyword">error</span> unknown architecture for packed isa</span></span><br><span class="line"><span class="meta"># <span class="keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+<p>也就是说，在 64 位环境下，isa_t 就是下面这个样子（后续都将以 64 位为例）：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> ISA_MASK        0x00007ffffffffff8ULL</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> ISA_MAGIC_MASK  0x001f800000000001ULL</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> ISA_MAGIC_VALUE 0x001d800000000001ULL</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> RC_ONE   (1ULL&lt;&lt;56)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> RC_HALF  (1ULL&lt;&lt;7)</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">union</span> isa_t &#123;</span><br><span class="line">    isa_t() &#123; &#125;</span><br><span class="line">    isa_t(uintptr_t value) : bits(value) &#123; &#125;</span><br><span class="line"></span><br><span class="line">    Class cls;</span><br><span class="line">    uintptr_t bits;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">struct</span> &#123;</span><br><span class="line">      uintptr_t nonpointer        : <span class="number">1</span>;</span><br><span class="line">      uintptr_t has_assoc         : <span class="number">1</span>;</span><br><span class="line">      uintptr_t has_cxx_dtor      : <span class="number">1</span>;  </span><br><span class="line">      uintptr_t shiftcls          : <span class="number">33</span>;</span><br><span class="line">      uintptr_t magic             : <span class="number">6</span>;   </span><br><span class="line">      uintptr_t weakly_referenced : <span class="number">1</span>;</span><br><span class="line">      uintptr_t deallocating      : <span class="number">1</span>; </span><br><span class="line">      uintptr_t has_sidetable_rc  : <span class="number">1</span>; </span><br><span class="line">      uintptr_t extra_rc          : <span class="number">19</span></span><br><span class="line">    &#125;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>所以，也可以理解为 isa_t 的结构是联合体+位域。<br>isa_t 内存结构如下图：<br><img src="/images/lix_blog_7.png"><br>各参数解释如下：<br><img src="/images/lix_blog_9.png"></p>
+<h3 id="2、isa-t-的实现"><a href="#2、isa-t-的实现" class="headerlink" title="2、isa_t 的实现"></a>2、isa_t 的实现</h3><p>以下是 objc_object 结构体的部分内容：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> objc_object &#123;</span><br><span class="line">private:</span><br><span class="line">    isa_t isa;</span><br><span class="line">public:</span><br><span class="line">    <span class="comment">// initIsa() should be used to init the isa of new objects only.</span></span><br><span class="line">    <span class="comment">// If this object already has an isa, use changeIsa() for correctness.</span></span><br><span class="line">    <span class="comment">// initInstanceIsa(): objects with no custom RR/AWZ</span></span><br><span class="line">    <span class="comment">// initClassIsa(): class objects</span></span><br><span class="line">    <span class="comment">// initProtocolIsa(): protocol objects</span></span><br><span class="line">    <span class="comment">// initIsa(): other objects</span></span><br><span class="line">    <span class="type">void</span> initIsa(Class cls <span class="comment">/*nonpointer=false*/</span>);</span><br><span class="line">    <span class="type">void</span> initClassIsa(Class cls <span class="comment">/*nonpointer=maybe*/</span>);</span><br><span class="line">    <span class="type">void</span> initProtocolIsa(Class cls <span class="comment">/*nonpointer=maybe*/</span>);</span><br><span class="line">    <span class="type">void</span> initInstanceIsa(Class cls, <span class="type">bool</span> hasCxxDtor);</span><br><span class="line">private:</span><br><span class="line">    <span class="type">void</span> initIsa(Class newCls, <span class="type">bool</span> nonpointer, <span class="type">bool</span> hasCxxDtor);</span><br><span class="line">｝</span><br></pre></td></tr></table></figure>
+<p>当系统通过 alloc 为一个对象分配内存时，会同时初始化 isa。对于对象来说，isa 的基础作用就是将对象和类进行绑定，告诉系统对象的归属。</p>
+<p>初始化 isa 主要是调用下面这两个方法（已精简处理）：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">inline</span> <span class="type">void</span> </span><br><span class="line">objc_object::initInstanceIsa(Class cls, <span class="type">bool</span> hasCxxDtor)</span><br><span class="line">&#123;</span><br><span class="line">    initIsa(cls, <span class="literal">true</span>, hasCxxDtor);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="type">void</span> </span><br><span class="line">objc_object::initIsa(Class cls, <span class="type">bool</span> nonpointer, <span class="type">bool</span> hasCxxDtor) </span><br><span class="line">&#123;     </span><br><span class="line">    assert(!isTaggedPointer());</span><br><span class="line">    <span class="keyword">if</span> (!nonpointer) &#123;</span><br><span class="line">        isa = isa_t((uintptr_t)cls);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        isa_t newisa(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">        newisa.bits = ISA_MAGIC_VALUE;</span><br><span class="line">        newisa.has_cxx_dtor = hasCxxDtor;</span><br><span class="line">        newisa.shiftcls = (uintptr_t)cls &gt;&gt; <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line">        isa = newisa;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，initIsa 中间首先有个断言，如果对象是 Tagged Pointer 就不继续执行了，这里涉及到了 Tagged Pointer，那什么是 Tagged Pointer 呢？</p>
+<p>以 NSNumber 对象为例，一个 NSNumber 对象，值是一个整数。正常情况下，如果这个整数只是一个 NSInteger 的普通变量，那么它所占用的内存是与 CPU 的位数有关，在 32 位 CPU 下占 4 个字节，在 64 位 CPU 下是占 8 个字节的。一个指针所占用的内存在 32 位 CPU 下为 4 个字节，在 64 位 CPU 下也是 8 个字节。</p>
+<p>如果没有 Tagged Pointer 对象，32 位和 64 位下这个 NSNumber 内存占用情况如下：<br><img src="/images/lix_blog_10.png" style="width:60%;"></p>
+<p>可以看出，如果没有 Tagged Pointer 对象，64 位设备相较于 32 位设备，NSNumber、NSDate 这样的对象所占用的内存会翻倍。不仅仅是内存上的浪费，作为一个对象，我们还需要在堆上为其分配内存、维护它的引用计数、管理它的生命期。这些都给程序增加了额外的逻辑，造成运行效率上的损失。</p>
+<p>在 2013 年 9 月，苹果推出了 iPhone5s，与此同时，iPhone5s 配备了首个采用 64 位架构的 A7 双核处理器，为了节省内存和提高执行效率，苹果提出了 Tagged Pointer 的概念。对于 64 位程序，引入 Tagged Pointer 后，相关逻辑能减少一半的内存占用，以及 3 倍的访问速度提升，100 倍的创建、销毁速度提升。</p>
+<p>由于 NSNumber、NSDate 一类的变量本身的值需要占用的内存大小常常不需要 8 个字节，拿整数来说，4 个字节所能表示的有符号整数就可以达到 20 多亿（注：2^31&#x3D;2147483648，另外 1 位作为符号位)，对于绝大多数情况都是可以处理的。</p>
+<p>所以可以将一个对象的指针拆成两部分，一部分直接保存数据，另一部分作为特殊标记，表示这是一个特别的指针，不指向任何一个地址。所以，引入了 Tagged Pointer 对象之后，64 位 CPU 下 NSNumber 的内存占用变成了下面这样：<br><img src="/images/lix_blog_11.png" style="width:60%;"></p>
+<p>所以，<font color=#ff0000>Tagged Pointer 指针的值不再是地址了，而是真正的值。</font>所以，实际上它不再是一个对象了，它只是一个披着对象皮的普通变量而已。所以，<font color=#ff0000>它的内存并不存储在堆中，也不需要 malloc 和 free。</font></p>
+<p>接下来看一个 Tagged Pointer 例子，下面代码，执行结果是什么？</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">dispatch_queue_t</span> queue = dispatch_get_global_queue(<span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++) &#123;</span><br><span class="line">    <span class="built_in">dispatch_async</span>(queue, ^&#123;</span><br><span class="line">        <span class="keyword">self</span>.name = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;abcdefghijk&quot;</span>];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行上面代码发现会必现 crash，因为这里 self.name 是正常 NSString 对象，其本质在 setter 方法中必然会对旧值有 release 操作，由于是在子线程赋值，很大概率出现同时 release，这就导致 crash 发生。</p>
+<p>而下面代码执行却不会出现 crash：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">dispatch_queue_t</span> queue = dispatch_get_global_queue(<span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++) &#123;</span><br><span class="line">    <span class="built_in">dispatch_async</span>(queue, ^&#123;</span><br><span class="line">        <span class="keyword">self</span>.name = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;abc&quot;</span>];</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>因为在上面代码中，给 self.name 赋的值是一个 Tagged Pointer，不需要 release，所以不会出现前面同时 release 引发的 crash。</p>
+<p>以上就是关于 Tagged Pointer 相关内容，接下来回到对  initIsa 方法的分析，再看下 initIsa 函数的源码：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">inline</span> <span class="type">void</span> </span><br><span class="line">objc_object::initIsa(Class cls, <span class="type">bool</span> nonpointer, <span class="type">bool</span> hasCxxDtor) </span><br><span class="line">&#123;     </span><br><span class="line">    assert(!isTaggedPointer());</span><br><span class="line">    <span class="keyword">if</span> (!nonpointer) &#123;</span><br><span class="line">        isa = isa_t((uintptr_t)cls);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        isa_t newisa(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">        newisa.bits = ISA_MAGIC_VALUE;</span><br><span class="line">        newisa.has_cxx_dtor = hasCxxDtor;</span><br><span class="line">        newisa.shiftcls = (uintptr_t)cls &gt;&gt; <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line">        isa = newisa;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到在判断了非 Tagged Pointer 之后，又判断了 nonpointer 是否为 true，前面提到 nonpointer 含义是是否开启了 isa指针 优化，1 代表优化过，0 代表未优化。</p>
+<p>根据源码也可以看到，<font color=#ff0000>在早期，也就是未进行 isa 指针优化前，isa 直接指向了 class 的地址。优化后，isa 内部存储了更加多的信息，并且不再直接指向 class 地址（isa 地址与 ISA_MASK 进行位运算后，才是 class 地址）。</font></p>
+<p>在 initInstanceIsa 方法中，调用 initIsa 方法的时候 nonpointer&#x3D; true，所以我们可以将方法简化为：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">inline</span> <span class="type">void</span> objc_object::initIsa(Class cls, <span class="type">bool</span> nonpointer, <span class="type">bool</span> hasCxxDtor) </span><br><span class="line">&#123; </span><br><span class="line">    isa.bits = ISA_MAGIC_VALUE;</span><br><span class="line">    isa.has_cxx_dtor = hasCxxDtor;</span><br><span class="line">    isa.shiftcls = (uintptr_t)cls &gt;&gt; <span class="number">3</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ISA_MAGIC_VALUE &#x3D; 0x000001a000000001ULL 对应二进制是11010000000000000000000000000000000000001，当对 bits 赋值之后，isa_t 的变化如下图：<br><img src="/images/lix_blog_12.png"><br>从上图可知，这一步对 nonpointer 和 magic 进行了赋值。可以看到 nonpointer 被赋值为 1。</p>
+<p>在设置 nonpointer 和 magic 值之后，会设置 isa 的 has_cxx_dtor，这一位表示当前对象有 C++ 或者 ObjC 的析构器(destructor)，如果没有析构器就会快速释放内存。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">isa.has_cxx_dtor = hasCxxDtor;</span><br></pre></td></tr></table></figure>
+
+<p>最后就要将当前对象对应的类指针存入 isa 结构体中了：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">isa.shiftcls = (uintptr_t)cls &gt;&gt; <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<p>由于类的指针要按照字节（8 bits）对齐内存（关于字节对齐下篇文章会专门分析），其指针后三位肯定都是没有意义的 0。将当前地址右移三位的就是为了将 Class 指针中无用的后三位清除，以减小内存的浪费，为 isa 留下更多空间用于性能的优化。</p>
+<p>对于 isa 和对应的 Class 对象之间关系，我们都知道可以使用 object_getClass(obj) 获取 Class 对象，object_getClass(obj) 源码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Class object_getClass(<span class="type">id</span> obj)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (obj) <span class="keyword">return</span> obj-&gt;getIsa();</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">return</span> Nil;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> Class </span><br><span class="line">objc_object::getIsa() </span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> ISA();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> Class </span><br><span class="line">objc_object::ISA() </span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> (Class)(isa.bits &amp; ISA_MASK);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>由以上源码可知，isa 地址，经过与 ISA_MASK 进行位运算，就是对应 class 或 meta-class 地址。</p>
+<p>实际上，从 64bit 开始，isa 不再直接指向 class 或 meta-class 地址，而是需要 isa 地址与 ISA_MASK 进行一次位运算后，才是 class 或 meta-class 的地址。</p>
+<h3 id="3、拾遗：objc-class-中的-cache、bits"><a href="#3、拾遗：objc-class-中的-cache、bits" class="headerlink" title="3、拾遗：objc_class 中的 cache、bits"></a>3、拾遗：objc_class 中的 cache、bits</h3><p>再回头看 objc_class 的结构：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> objc_class : objc_object &#123;</span><br><span class="line">    isa_t isa;</span><br><span class="line">    Class superclass;</span><br><span class="line">    cache_t cache;</span><br><span class="line">    class_data_bits_t bits;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>其中 bits 就是存储类的方法、属性和遵循的协议等信息的地方，在 objc_class 结构体中的注释写到 class_data_bits_t 相当于 class_rw_t 指针加上 rr&#x2F;alloc 的标志。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">class_data_bits_t bits;    <span class="comment">// class_rw_t * plus custom rr/alloc flags</span></span><br></pre></td></tr></table></figure>
+<p>它为我们提供了便捷方法用于返回其中的 class_rw_t * 指针：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">class_rw_t* data() &#123;</span><br><span class="line">   <span class="keyword">return</span> (class_rw_t *)(bits &amp; FAST_DATA_MASK);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将 bits 与 FAST_DATA_MASK 进行位运算，转换成 class_rw_t * 返回。ObjC 类中的属性、方法还有遵循的协议等信息都保存在 class_rw_t 中：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> class_rw_t &#123;</span><br><span class="line">    uint32_t flags;</span><br><span class="line">    uint32_t version;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> class_ro_t *ro;</span><br><span class="line"></span><br><span class="line">    method_array_t methods;</span><br><span class="line">    property_array_t properties;</span><br><span class="line">    protocol_array_t protocols;</span><br><span class="line"></span><br><span class="line">    Class firstSubclass;</span><br><span class="line">    Class nextSiblingClass;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>其中还有一个指向常量的指针 ro，其中存储了当前类在编译期就已经确定的属性、方法以及遵循的协议：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> class_ro_t &#123;</span><br><span class="line">    uint32_t flags;</span><br><span class="line">    uint32_t instanceStart;</span><br><span class="line">    uint32_t instanceSize;</span><br><span class="line">    uint32_t reserved;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> uint8_t * ivarLayout;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">const</span> <span class="type">char</span> * name;</span><br><span class="line">    method_list_t * baseMethodList;</span><br><span class="line">    protocol_list_t * baseProtocols;</span><br><span class="line">    <span class="keyword">const</span> ivar_list_t * ivars;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">const</span> uint8_t * weakIvarLayout;</span><br><span class="line">    property_list_t *baseProperties;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>使用下图表示其关系：<br><img src="/images/lix_blog_13.png"><br>对于 objc_class 结构体中的 cache，作用主要是为了优化方法调用的性能。当对象 receiver 调用方法 message 时，首先根据对象 receiver 的 isa 指针查找到它对应的类，然后在类的 methods 中搜索方法，如果没有找到，就使用 super_class 指针到父类中的 methods 查找，一旦找到就调用方法。如果没有找到，有可能消息转发，也可能忽略它。但这样查找方式效率太低，因为往往一个类大概只有 20% 的方法经常被调用，占总调用次数的 80%。所以使用 Cache 来缓存经常调用的方法，当调用方法时，优先在 Cache 查找，如果没有找到，再到 methods 查找。</p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#isa" >
+    <span class="tag-code">isa</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/26714/">
+        <span class="nav-arrow">← </span>
+        
+          AFNetworking 实现分析
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/16257/">
+        
+          OC 对象一探究竟之二：内存中的对象
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/60413/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

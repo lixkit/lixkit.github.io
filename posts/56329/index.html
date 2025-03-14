@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、WKWebView1、WebKitWebKit 是 Safari 浏览器的内核，WebKit 由多个重要模块组成：  WebKit Embedding API（WebKit 嵌入 API）WebKit 提供给浏览器 UI 调用的接口，例如 iOS 中 WebKit 框架提供的 WKWebView。  WebCoreHTML 排版引擎，包括 HTML 解析器、CSS 解析器等。  JavaScr">
+<meta property="og:type" content="article">
+<meta property="og:title" content="WKWebView 与 JavaScriptCore">
+<meta property="og:url" content="https://www.lixkit.com/posts/56329/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、WKWebView1、WebKitWebKit 是 Safari 浏览器的内核，WebKit 由多个重要模块组成：  WebKit Embedding API（WebKit 嵌入 API）WebKit 提供给浏览器 UI 调用的接口，例如 iOS 中 WebKit 框架提供的 WKWebView。  WebCoreHTML 排版引擎，包括 HTML 解析器、CSS 解析器等。  JavaScr">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_78.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_79.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_200.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_201.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_82.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_83.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_84.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_85.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_202.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_203.png">
+<meta property="article:published_time" content="2020-09-12T16:32:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.903Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="底层">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_78.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      WKWebView 与 JavaScriptCore | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>WKWebView 与 JavaScriptCore</h2>
+  <p class="post-date">2020-09-12</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、WKWebView"><a href="#一、WKWebView" class="headerlink" title="一、WKWebView"></a>一、WKWebView</h2><h3 id="1、WebKit"><a href="#1、WebKit" class="headerlink" title="1、WebKit"></a>1、WebKit</h3><p><code>WebKit</code> 是 Safari 浏览器的内核，<code>WebKit</code> 由多个重要模块组成：<br><img src="/images/lix_blog_78.png"></p>
+<ul>
+<li><p>WebKit Embedding API（WebKit 嵌入 API）<br>WebKit 提供给浏览器 UI 调用的接口，例如 iOS 中 <code>WebKit</code> 框架提供的 <code>WKWebView</code>。</p>
+</li>
+<li><p>WebCore<br>HTML 排版引擎，包括 HTML 解析器、CSS 解析器等。</p>
+</li>
+<li><p>JavaScriptCore<br><code>JavaScriptCore</code> 是 <code>WebKit</code> 默认内嵌的 <code>JavaScript</code> 脚本引擎，是 <code>JavaScript</code> 的虚拟机，为 <code>JavaScript</code> 的执行提供底层资源。</p>
+</li>
+</ul>
+<p>2008 年，<code>WebKit</code> 项目宣布对 <code>JavaScriptCore</code> 重写，项目演变成 SquirrelFish Extreme（简称为 SFX，市场称之为 Nitro），JavaScript 的运行效率有了很大的提升。Safari 和 WKWebView 都使用了 Nitro JavaScript 引擎。</p>
+<ul>
+<li>WebKit Ports<br>WebKit 中的非共享部分，WebKit Ports 提供了调用 Native Library 的接口，由于各平台差异、第三方库和需求不同等原因，往往需要按照自己的方式来设计与实现，例如网络方面 Safari 使用 CFNetwork，而 Chromium 中使用 Chromium stack 等等。</li>
+</ul>
+<p><strong>WebKit 的历史</strong><br><code>WebKit</code> 项目是 Apple 于 2001 年启动的项目，2005 年将 <code>WebKit</code> 开源（之前仅有 <code>WebCore</code> 及 <code>JavaScriptCore</code> 开源）。其中 WebCore 基于 KDE（一个国际性的自由软件社区） 发布的 Konqueror 浏览器项目中的 HTML 排版引擎 <code>KHTML</code>，<code>JavaScriptCore</code> 基于 Konqueror 中的 <code>JavaScript</code> 引擎 <code>KJS</code>。</p>
+<p>Apple 将 <code>KHTML</code> 发扬光大，起初的时候 Apple 和 KDE 关系很和谐，但是随着时间的推进，<code>WebKit</code> 和 <code>KHTML</code> 之间交换代码变得越来越困难，Apple 经常间隔很长时间后提交一大批代码修改，并且没有足够的代码注释及文档，而且存在未开发完整的功能，对于 KDE 而言合并代码非常困难。此外，Apple 要求 KDE 开发者阅览苹果代码之前必须签署保密条款，KDE 也很难接受这一点。在 2005 年，KDE 开发者开始公开攻击 Apple 的做法，并称两方的合作关系已经彻底瓦解了。</p>
+<p>事情被媒体报道之后，苹果做出了一系列的让步。在 2005 年，苹果宣布将 <code>WebKit</code> 完全开源。KDE 和 Apple 的关系也得到了一些改善，有一些 KDE 的开发者们开始为 <code>WebKit</code> 提交更改。</p>
+<p>之后，Google 参与 <code>WebKit</code> 的开发，并与 2008 年推出 Chrome 浏览器，Chrome 浏览器是不开源的，其开源项目是 Chromium，Chromium 为 Chrome 提供了绝大多数的源代码。虽然 Chrome 浏览器是基于 <code>WebKit</code> 开发的，但是 Chrome 主要使用了 <code>WebKit</code> 中的 WebCore，Google 自研了 <code>JavaScript</code> 引擎 V8。</p>
+<p>后由于 Google 与 Apple 之间竞争关系，两者互相指责对方在源码共享上不够开放，2013 年 Google 宣布它创建了 <code>WebKit</code> 中 <code>WebCore</code> 组件的分支——Blink。<br><img src="/images/lix_blog_79.png"></p>
+<h3 id="2、WKWebView"><a href="#2、WKWebView" class="headerlink" title="2、WKWebView"></a>2、WKWebView</h3><h4 id="1-WKWebView-多进程结构"><a href="#1-WKWebView-多进程结构" class="headerlink" title="(1) WKWebView 多进程结构"></a>(1) WKWebView 多进程结构</h4><p>在 iOS 系统中，通常一个应用对应一个进程，但是在 <code>WebKit</code> 的发展过程中，基于稳定性与安全性考虑，引入了多进程的概念，避免单一页面的异常影响整体 app 运行，进程之间通过 <code>CoreIPC</code> 进行通信，一个 WKWebView 往往对应如下三个进程：<br><img src="/images/lix_blog_200.png"></p>
+<ul>
+<li><p><code>UIProcess</code> 进程为 app 所在进程，<code>WKWebView</code> 在该进程中提供了大量 API 供开发者与内核交互，也是开发者最熟悉的一部分。</p>
+</li>
+<li><p><code>WebContent</code> 进程对应的是每一个新开的网页，该进程视内存情况可进行复用，某一 <code>WebContent</code> 进程的异常并不会影响到主 app 进程及其他 WebContent 进程，<code>WebContent</code> 进程被杀死的现象为白屏。</p>
+</li>
+<li><p><code>NetWorking</code> 进程，无论多 <code>WKWebView</code> 还是单 <code>WKWebView</code> 场景，都只有唯一的 <code>NetWorking</code> 进程，这种设计主要便于网络请求管理以及保证网络缓存、<code>cookie</code> 等管理的一致性。</p>
+</li>
+</ul>
+<p><strong>苹果官方文档中描述：配置同一 <code>WKProcessPool</code> 的多个 <code>WKWebView</code> 共享同一 <code>WebContent</code> 进程，即可以配置 <code>WebContent</code> 进程唯一（<a target="_blank" rel="noopener" href="https://developer.apple.com/documentation/webkit/wkprocesspool">原文</a>）。<br>但源码头文件中的注释与官方文档不一致，源码头文件描述配置同一 <code>WKProcessPool</code> 的多个 <code>WKWebView</code> 共享的是同一 <code>WebContent</code> 进程池，该配置未限制 <code>WebContent</code> 进程数量，而是共享进程池。<br>从 Demo 实际测试看，官方文档描述并不准确，我们以源码注释为准。<br>（摘自 <a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzUxMzk2ODI1NQ==&mid=2247484382&idx=1&sn=0ee23e4ca6dc8deff3cf42303dc8c6db&chksm=f94c52cece3bdbd8293832384e2c51282c0ab2435d1f6183fa3ca18b1455776ccd1f444ab631&scene=21#wechat_redirect">WebKit 源码调试与分析</a>）</strong></p>
+<p>也就是说，即使多个 <code>WKWebView</code> 配置了同一个 <code>WKProcessPool</code>，打开多个 <code>WKWebView</code> 仍然会创建多个 <code>WebContent</code> 进程。</p>
+<h4 id="2-WKWebView-的-cookie-问题"><a href="#2-WKWebView-的-cookie-问题" class="headerlink" title="(2) WKWebView 的 cookie 问题"></a>(2) WKWebView 的 cookie 问题</h4><p><code>WKWebView</code>  <code>cookie</code> 的存储<br>先看下 <code>WKWebView</code> 的三个进程与 <code>cookie</code> 的关联<br><strong>UIProcess：</strong><br><code>UIProcess</code> 进程为 app 进程（APP 进程中其实有 <code>NSHTTPCookieStorage</code> 仓储进行 <code>cookie</code> 管理，但这不是本文的重点，因此不展开来讲），苹果系统为开发者提供了 <code>WKHTTPCookieStorage</code> API 进行 <code>WebKit</code> 内核的 <code>cookie</code> 管理，<code>WKHTTPCookieStorage</code> 其实并不提供实际的存储能力，而是封装了一系列基于进程间通信的方法，将 <code>UIProcess</code> 进程中发生的 <code>cookie</code> 操作，发送到 <code>NetWorking</code> 进程中进行处理，并将执行结果通过回调函数返回。</p>
+<p><strong>WebContent：</strong><br><code>WebContent</code> 进程是前端操作 <code>cookie</code> 的进程，原则上，每一个网页页面都只能操作当前页面域名下的 <code>cookie</code>。因此基于性能考虑，每一个 <code>WebContent</code> 进程中会有一个 <code>cookieCache</code> 实例，它是 <code>NetWorking</code> 进程中存储的 <code>cookie</code> 的子集，仅存储当前页面域名下的 <code>cookie</code>，因此 <code>cookieCache</code> 采取了内存缓存的方式，其特征是存储量小，查找速度快。</p>
+<p><strong>NetWorking：</strong><br><code>NSHTTPCookieStorage</code> setCookie 流程图：<br><img src="/images/lix_blog_201.png"><br><code>NetWorking</code> 进程是 <code>cookie</code> 存储的最核心进程，它管理来自网络中服务端 <code>response</code> 中配置的 <code>cookie</code>，同时也接受来自前端和客户端的 <code>cookie</code> 操作，是最全的 <code>cookie</code> 存储中心。通过源码分析，我们发现其内部还是通过 <code>NSHTTPCookieStorage</code> 进行管理的， <code>NSHTTPCookieStorage</code> 有如下存储规则：</p>
+<ul>
+<li><p>allCookies<br>所有 <code>cookie</code> 都会存入字典 <code>allCookies</code> 中，方便快速查询。当我们杀死 app 后，位于内存中的 <code>allCookies</code> 字典也会一同清理掉。</p>
+</li>
+<li><p>sessionOnly false cookie<br>对于某个 <code>cookie</code>，如果其属性中 <code>sessionOnly</code> 为 <code>false</code>，且设置的过期时间未到达，那我们判断该 <code>cookie</code> 是否具备持久性。</p>
+</li>
+<li><p>持久性 cookie<br>具备持久性的 <code>cookie</code> 需要存储到磁盘文件中。</p>
+</li>
+</ul>
+<p><strong>三种不同场景的 <code>cookie</code> 操作是如何协同工作的？</strong><br>如 <code>cookie</code> 管理协同图所示，不同场景下的 <code>cookie</code> 协同操作其本质就是三大进程间的通信：</p>
+<ul>
+<li><p><code>UIProcess</code> 进程并没有直接管理 <code>cookie</code>，而是通过进程间通信的方式，在 <code>NetWorking</code> 进程中管理 <code>cookie</code>。</p>
+</li>
+<li><p>冷启动时，<code>NetWorking</code> 进程会初始化内部 <code>NSHTTPCookieStorage</code> ，并会将磁盘中的 <code>cookie</code> 读取出来，设置到内存字典 <code>allCookies</code> 中，同时将 <code>allCookies</code> 中的 <code>cookie</code> 变更通过广播的方式告知 <code>WebContent</code> 进程，发生了 <code>cookie</code> 变更，需要进行 <code>cookie</code> 同步。</p>
+<ul>
+<li>来自客户端的 <code>cookie</code> 操作或者来自服务端的 <code>cookie</code> 设置，导致了 <code>NetWorking</code> 进程中的 <code>cookie</code> 变更，都会通过广播的方式告知所有 <code>WebContent</code> 进程同时进行变更操作。</li>
+</ul>
+</li>
+<li><p>所有 <code>WebContent</code> 进程都会注册监听 <code>NetWorking</code> 进程中的 <code>cookie</code> 变更，及时进行相关变更的同步。</p>
+<ul>
+<li><p>前端 <code>setCookie</code> 操作会将 <code>cookie</code> 字符串解析为 <code>NSHTTPCookie</code> 实例，然后将该 <code>cookie</code> 存入 <code>cookieCache</code> 中，并同步到 <code>NetWorking</code> 进程中进行存储。</p>
+</li>
+<li><p>前端执行 <code>getCookie</code> 操作会读取当前页面域名下的所有 <code>cookie</code>，若判断 <code>cookieCache</code> 中没有当前页面域名下的 <code>cookie</code>，考虑到异常情况，会兜底向 <code>NetWorking</code> 进程发送请求进行 <code>cookie</code> 查找。</p>
+</li>
+</ul>
+</li>
+</ul>
+<p><strong>WKWebView 的 cookie 问题</strong><br><code>UIWebView</code> 对 <code>cookie</code> 是通过 <code>NSHTTPCookieStorage</code> 来统一处理的，服务端响应时写入，<code>UIWebView</code> 发起请求会自动带上 <code>NSHTTPCookieStorage</code> 中的 <code>cookie</code>，<code>WKWebView</code> <code>Cookie</code> 问题在于 <code>WKWebView</code> 发起的请求不会自动带上存储于 <code>NSHTTPCookieStorage</code> 容器中的 cookie。因为 <code>WKWebView</code> 请求已不在 APP 进程中发起和响应处理，而是在单独进程中处理，所以 <code>WKWebView</code> 发起的请求无法直接从 <code>NSHTTPCookieStorage</code> 取到 <code>cookie</code>。</p>
+<p>但是 <code>WKWebView</code> 其实会将 <code>Cookie</code> 存储于 <code>NSHTTPCookieStorage</code> 中的，但存储时机有延迟，在 iOS 8 上，当页面跳转的时候，当前页面的 <code>cookie</code> 会写入 <code>NSHTTPCookieStorage</code> 中，而在 iOS 10 上，JS 执行 <code>document.cookie</code> 或服务器 <code>set-cookie</code> 注入的 <code>cookie</code> 会很快同步到 <code>NSHTTPCookieStorage</code> 中。</p>
+<p>所以当我们使用 Native 去做登录，登录完成后将 <code>cookie</code> 写入 <code>NSHTTPCookieStorage</code>，在 <code>UIWebView</code> 上不会有问题，在 <code>WKWebView</code> 上就不行了，原因就在于 <code>WKWebView</code> 不会从 <code>NSHTTPCookieStorage</code> 中获取 <code>cookie</code>，这就是常说的 <code>WKWebView</code> 的 <code>cookie</code> 问题。</p>
+<p>iOS 11+ 可以利用 <code>WKHTTPCookieStore</code> 解决这个问题，因为只要是存在 <code>WKHTTPCookieStore</code> 里的 cookie，<code>WKWebView</code> 每次请求都会携带。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">WKHTTPCookieStore</span> : <span class="title">NSObject</span></span></span><br><span class="line"><span class="comment">/*! @abstract 获取所有 cookie @param completionHandler 获取所有 cookie 后回调 */</span></span><br><span class="line">- (<span class="type">void</span>)getAllCookies:(<span class="type">void</span> (^)(<span class="built_in">NSArray</span> *))completionHandler;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*! @abstract 设置一个 cookie  @param cookie 需要设置的 cookie  @param completionHandler cookie 设置成功的回调  */</span> </span><br><span class="line">- (<span class="type">void</span>)setCookie:(<span class="built_in">NSHTTPCookie</span> *)cookie completionHandler:(<span class="keyword">nullable</span> <span class="type">void</span> (^)(<span class="type">void</span>))completionHandler;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*! @abstract 删除指定的 cookie  @param completionHandler cookie 成功删除的回调  */</span> </span><br><span class="line">- (<span class="type">void</span>)deleteCookie:(<span class="built_in">NSHTTPCookie</span> *)cookie completionHandler:(<span class="keyword">nullable</span> <span class="type">void</span> (^)(<span class="type">void</span>))completionHandler;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>iOS 11 以下系统，可以在 <code>WKWebView</code> <code>loadRequest</code> 前，在 request header 中设置 <code>Cookie</code> 以解决该问题：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">WKWebView</span> * webView = [<span class="built_in">WKWebView</span> new]; </span><br><span class="line"><span class="built_in">NSMutableURLRequest</span> * request = [<span class="built_in">NSMutableURLRequest</span> requestWithURL:[<span class="built_in">NSURL</span> URLWithString:<span class="string">@&quot;http://h5.qzone.qq.com/mqzone/index&quot;</span>]]; </span><br><span class="line"></span><br><span class="line">[request addValue:<span class="string">@&quot;skey=skeyValue&quot;</span> forHTTPHeaderField:<span class="string">@&quot;Cookie&quot;</span>]; </span><br><span class="line">[webView loadRequest:request];</span><br></pre></td></tr></table></figure>
+<p>对于(同域)Ajax、iframe 请求不携带 <code>cookie</code> 问题，可以使用如下方式解决：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">WKUserContentController</span>* userContentController = [<span class="built_in">WKUserContentController</span> new]; </span><br><span class="line"><span class="built_in">WKUserScript</span> * cookieScript = [[<span class="built_in">WKUserScript</span> alloc] initWithSource: <span class="string">@&quot;document.cookie = &#x27;skey=skeyValue&#x27;;&quot;</span> injectionTime:<span class="built_in">WKUserScriptInjectionTimeAtDocumentStart</span> forMainFrameOnly:<span class="literal">NO</span>]; </span><br><span class="line"></span><br><span class="line">[userContentController addUserScript:cookieScript];</span><br></pre></td></tr></table></figure>
+<p>这种方案无法解决 302 请求的 <code>Cookie</code> 问题，比如，第一个请求是 <code>www.a.com</code>， 我们通过在 <code>request header</code> 里带上 <code>Cookie</code> 解决该请求的 <code>Cookie</code> 问题，接着页面 302 跳转到 <code>www.b.com</code>， 这个时候 <code>www.b.com</code> 这个请求就可能因为没有携带 <code>cookie</code> 而无法访问。当然，由于每一次页面跳转前都会调用回调函数：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)webView:(<span class="built_in">WKWebView</span> *)webView decidePolicyForNavigationAction:(<span class="built_in">WKNavigationAction</span> *)navigationAction decisionHandler:(<span class="type">void</span> (^)(<span class="built_in">WKNavigationActionPolicy</span>))decisionHandler;</span><br></pre></td></tr></table></figure>
+<p>可以在该回调函数里拦截 302 请求，copy request，在 <code>request header</code> 中带上 <code>cookie</code> 并重新 <code>loadRequest</code>。不过这种方法依然解决不了页面 iframe 跨域请求的 <code>Cookie</code> 问题，毕竟-<code>[WKWebView loadRequest:]</code> 只适合加载 mainFrame 请求。</p>
+<h4 id="3-WKWebView-NSURLProtocol-拦截问题"><a href="#3-WKWebView-NSURLProtocol-拦截问题" class="headerlink" title="(3) WKWebView NSURLProtocol 拦截问题"></a>(3) WKWebView NSURLProtocol 拦截问题</h4><p><code>WKWebView</code> 在独立于 APP 进程之外的进程中执行网络请求，请求数据不经过主进程，因此，在 <code>WKWebView</code> 上直接使用 <code>NSURLProtocol</code> 无法拦截请求。苹果开源的 webKit2 源码暴露了私有 API：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+ [<span class="built_in">WKBrowsingContextController</span> registerSchemeForCustomProtocol:]</span><br></pre></td></tr></table></figure>
+<p>通过注册 <code>http(s) scheme</code> 后 <code>WKWebView</code> 将可以使用 <code>NSURLProtocol</code> 拦截 <code>http(s)</code> 请求：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Class cls = <span class="built_in">NSClassFromString</span>(<span class="string">@&quot;WKBrowsingContextController”); </span></span><br><span class="line"><span class="string">SEL sel = NSSelectorFromString(@&quot;</span>registerSchemeForCustomProtocol:<span class="string">&quot;); </span></span><br><span class="line"><span class="string">if ([(id)cls respondsToSelector:sel]) &#123; </span></span><br><span class="line"><span class="string">           // 注册http(s) scheme, 把 http和https请求交给 NSURLProtocol处理 </span></span><br><span class="line"><span class="string">           [(id)cls performSelector:sel withObject:@&quot;</span>http<span class="string">&quot;]; </span></span><br><span class="line"><span class="string">           [(id)cls performSelector:sel withObject:@&quot;</span>https<span class="string">&quot;]; </span></span><br><span class="line"><span class="string">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>iOS 11 上, <code>WebKit</code> 团队开放了 <code>WKWebView</code> 加载自定义资源的 API <code>WKURLSchemeHandler</code>：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">ViewController</span></span></span><br><span class="line">- (<span class="type">void</span>)viewDidLoad &#123;    </span><br><span class="line">    [<span class="variable language_">super</span> viewDidLoad];    </span><br><span class="line">    <span class="built_in">WKWebViewConfiguration</span> *configuration = [<span class="built_in">WKWebViewConfiguration</span> new];</span><br><span class="line">    <span class="comment">//设置URLSchemeHandler来处理特定URLScheme的请求，URLSchemeHandler需要实现WKURLSchemeHandler协议</span></span><br><span class="line">    <span class="comment">//本例中WKWebView将把URLScheme为customScheme的请求交由CustomURLSchemeHandler类的实例处理    </span></span><br><span class="line">    [configuration setURLSchemeHandler:[CustomURLSchemeHandler new] forURLScheme: <span class="string">@&quot;customScheme&quot;</span>];    </span><br><span class="line">    <span class="built_in">WKWebView</span> *webView = [[<span class="built_in">WKWebView</span> alloc] initWithFrame:<span class="keyword">self</span>.view.bounds configuration:configuration];    </span><br><span class="line">    <span class="keyword">self</span>.view = webView;    </span><br><span class="line">    [webView loadRequest:[<span class="built_in">NSURLRequest</span> requestWithURL:[<span class="built_in">NSURL</span> URLWithString:<span class="string">@&quot;customScheme://www.test.com&quot;</span>]]];</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>注意：</p>
+<ul>
+<li><code>setURLSchemeHandler</code> 注册时机只能在 <code>WKWebView</code> 创建<code>WKWebViewConfiguration</code> 时注册。</li>
+<li><code>WKWebView</code> 只允许开发者拦截自定义 <code>Scheme</code> 的请求，不允许拦截 “http”、“https”、“ftp”、“file” 等的请求，否则会 crash。</li>
+<li>【补充】<code>WKWebView</code> 加载网页前，要在 <code>user-agent</code> 添加个标志，H5 遇到这个标识就使用 <code>customScheme</code>,否则就是用原来的 <code>http</code> 或 <code>https</code></li>
+</ul>
+<p>一般可以通过这种方式实现 H5 加载秒开，基本流程是提前预加载 html、js、css、图片类型文件，注册自定义 <code>WKURLSchemeHandler</code> 拦截资源请求，收到拦截请求后，先获取本地资源包对应的资源，转换成 data 回传给 webView 进行渲染处理；若本地没有，则 customScheme 替换成 https 的 url 重发请求通知 webview。注意由于只能拦截自定义的 Scheme 请求，所以必须和相关 H5 研发统一 Scheme。</p>
+<p>但是这种方案目前存在两个严重缺陷：</p>
+<ul>
+<li>a、post 请求 body 数据被清空<br>由于 <code>WKWebView</code> 在独立进程里执行网络请求。一旦注册 http(s) scheme 后，网络请求将从 Network Process 发送到 App Process，这样 <code>NSURLProtocol</code> 才能拦截网络请求。在 webkit2 的设计里使用 <code>MessageQueue</code> 进行进程之间的通信，Network Process 会将请求 encode 成一个 Message，然后通过 IPC 发送给 App Process。出于性能的原因，encode 的时候 <code>HTTPBody</code> 和 <code>HTTPBodyStream</code> 这两个字段被丢弃掉了。</li>
+</ul>
+<p>因此，如果通过 <code>registerSchemeForCustomProtocol</code> 注册了 <code>http(s)</code> scheme, 那么由 <code>WKWebView</code> 发起的所有 <code>http(s)</code> 请求都会通过 IPC 传给主进程 <code>NSURLProtocol</code> 处理，导致 <code>post</code> 请求 body 被清空；</p>
+<ul>
+<li>b、对 ATS 支持不足<br>测试发现一旦打开 ATS 开关：Allow Arbitrary Loads 选项设置为 NO，同时通过 <code>registerSchemeForCustomProtocol</code> 注册了 <code>http(s)</code> scheme，<code>WKWebView</code> 发起的所有 <code>http</code> 网络请求将被阻塞（即便将Allow Arbitrary Loads in Web Content 选项设置为YES）；</li>
+</ul>
+<p><code>WKWebView</code> 可以注册 <code>customScheme</code>, 比如 <code>dynamic://</code> ，因此希望使用离线功能又不使用 <code>post</code> 方式的请求可以通过 <code>customScheme</code> 发起请求，比如 <code>dynamic://www.dynamicalbumlocalimage.com/</code>，然后在 app 进程 <code>NSURLProtocol</code> 拦截这个请求并加载离线数据。不足：使用 post 方式的请求该方案依然不适用，同时需要 H5 侧修改请求 scheme 以及 CSP 规则；</p>
+<h3 id="3、WKWebView-Native-与-JS-互相调用"><a href="#3、WKWebView-Native-与-JS-互相调用" class="headerlink" title="3、WKWebView Native 与 JS 互相调用"></a>3、WKWebView Native 与 JS 互相调用</h3><p>在 <code>UIWebView</code> 时代没有提供系统级的函数进行 Web 与 Native 的交互，绝大部分 APP 都是通过 <code>WebViewJavascriptBridge</code>（下节介绍）来进行的通信。但是由于 <code>JavascriptCore</code> 的存在，对于 <code>UIWebView</code> 来说只要有效的获取到内部的 <code>JSContext</code>，也可以达到目的。目前已知有效的几个私有方法获取 <code>Context</code> 的方法如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 通过系统废弃函数获取 context</span></span><br><span class="line">- (<span class="type">void</span>)webView:(WebView *)webView didCreateJavaScriptContext:(JSContext *)context forFrame:(WebFrame *)frame;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 通过 valueForKeyPath 获取 context</span></span><br><span class="line"><span class="keyword">self</span>.jsContext = [_webView valueForKeyPath:<span class="string">@&quot;documentView.webView.mainFrame.javaScriptContext&quot;</span>];</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>WKWebView</code> 中提供了系统级的 Web 和 Native 通讯机制，通过 Message Handler 的封装使开发效率有了很大的提升。同时系统封装了 <code>JavaScript</code> 对象和 Objective-C 对象的转换逻辑，也进降低了使用的门槛。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// js 端发送消息，postMessage 有且只有一个参数，可传 json(字典)、字符串、数组。如不传参数写 postMessage(null)。&#123;NAME&#125; 为 Message Handler 的 name</span></span><br><span class="line">window.webkit.messageHandlers.&#123;NAME&#125;.postMessage(<span class="string">&quot;xxxx&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 注册 Message Handler 的 name</span></span><br><span class="line">[<span class="keyword">self</span>.webView.configuration.userContentController addScriptMessageHandler:<span class="keyword">self</span> name:<span class="string">@&quot;&#123;NAME&#125;&quot;</span>];</span><br><span class="line"></span><br><span class="line"><span class="comment">// Native 在回调中接收</span></span><br><span class="line">- (<span class="type">void</span>)userContentController:(<span class="built_in">WKUserContentController</span> *)userContentController didReceiveScriptMessage:(<span class="built_in">WKScriptMessage</span> *)message;  </span><br><span class="line"></span><br><span class="line">Objective-C 执行 js 代码也很简单：</span><br><span class="line">[webView evaluateJavaScript:<span class="string">@&quot;js 代码&quot;</span> completionHandler:^(<span class="type">id</span> _Nullable result, <span class="built_in">NSError</span> * _Nullable error) &#123;</span><br><span class="line">        </span><br><span class="line">&#125;];</span><br></pre></td></tr></table></figure>
+
+<p>拦截自定义 Scheme 请求 - <code>WebViewJavascriptBridge</code><br>由于私有方法的稳定性与审核风险，开发者不愿意使用上文提到的 <code>UIWebView</code> 获取 <code>JSContext</code> 的方式进行通信，所以通常都采用基于 iframe 和自定义 Scheme 的 <code>JavascriptBridge</code> 进行通信。虽然在之后的 <code>WKWebView</code> 提供了系统函数，但是大部分 APP 都需要兼容 <code>UIWebView</code> 与 <code>WKWebView</code>，所以目前的使用范围仍然十分广泛。</p>
+<p>在 Github 中类似的开源框架有很多，但是无外乎都是 Web 侧根据固定的格式创建包含通信信息的 Request，之后创建隐式 iFrame 节点请求；Native 侧在相应的 WebView 回调中解析 Request 的 Scheme，之后按照格式解析数据并处理。</p>
+<p>而对于数据传递和回调处理的问题，在兼容两种 WebView、持续的更新的 <code>WebViewJavascriptBridge</code> 中，iFrame request 没有直接传递数据，而是 Web 和 Native 侧维护共同的参数或回调 Queue，Native 通过 Request 中 Scheme 的解析触发对 Queue 里数据的读取。<br><img src="/images/lix_blog_82.png"></p>
+<p>备注：<br><code>WKWebView</code> 的缓存模式：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="built_in">NS_ENUM</span>(<span class="built_in">NSUInteger</span>, <span class="built_in">NSURLRequestCachePolicy</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">NSURLRequestUseProtocolCachePolicy</span> = <span class="number">0</span>,<span class="comment">//默认遵守http缓存策略</span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">NSURLRequestReloadIgnoringLocalCacheData</span> = <span class="number">1</span>, <span class="comment">//忽略本地缓存</span></span><br><span class="line">    <span class="built_in">NSURLRequestReloadIgnoringLocalAndRemoteCacheData</span> = <span class="number">4</span>, <span class="comment">// Unimplemented //忽略本地和远程缓存</span></span><br><span class="line">    <span class="built_in">NSURLRequestReloadIgnoringCacheData</span> = <span class="built_in">NSURLRequestReloadIgnoringLocalCacheData</span>,</span><br><span class="line"></span><br><span class="line">    <span class="built_in">NSURLRequestReturnCacheDataElseLoad</span> = <span class="number">2</span>,<span class="comment">//只有当本地缓存不存在的时候才会请求，否则加载本地缓存</span></span><br><span class="line">    <span class="built_in">NSURLRequestReturnCacheDataDontLoad</span> = <span class="number">3</span>,<span class="comment">//只加载本地缓存，没有缓存也不会请求</span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">NSURLRequestReloadRevalidatingCacheData</span> = <span class="number">5</span>, <span class="comment">// Unimplemented //判断缓存是否过期</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="二、JavaScriptCore"><a href="#二、JavaScriptCore" class="headerlink" title="二、JavaScriptCore"></a>二、JavaScriptCore</h2><p>想用使用 <code>JavaScriptCore</code> 需要先导入头文件 <code>#import &lt;JavaScriptCore/JavaScriptCore.h&gt;</code>。我们先看下 JavaScriptCore.h 中的内容：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">ifndef</span> JavaScriptCore_h</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> JavaScriptCore_h</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;JavaScriptCore/JavaScript.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;JavaScriptCore/JSStringRefCF.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> defined(__OBJC__) &amp;&amp; JSC_OBJC_API_ENABLED</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#import <span class="string">&lt;JavaScriptCore/JSContext.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;JavaScriptCore/JSValue.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;JavaScriptCore/JSManagedValue.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;JavaScriptCore/JSVirtualMachine.h&gt;</span></span></span><br><span class="line"><span class="meta">#import <span class="string">&lt;JavaScriptCore/JSExport.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span> <span class="comment">/* JavaScriptCore_h */</span></span></span><br><span class="line"></span><br><span class="line">接下来分别介绍一下这几个文件：</span><br></pre></td></tr></table></figure>
+<h3 id="1、JSVirtualMachine"><a href="#1、JSVirtualMachine" class="headerlink" title="1、JSVirtualMachine"></a>1、JSVirtualMachine</h3><p>一个 <code>JSVirtualMachine</code>（以下简称 JSVM）实例代表了一个自包含的 JS 运行环境，或者是一系列 JS 运行所需的资源。该类有两个主要的使用用途：一是支持并发的 JS 调用，二是管理 JS 和 Native 之间桥对象的内存。</p>
+<p>既然 <code>JavaScriptCore</code> 被认为是一个虚拟机，那 JSVM 又是什么？实际上，JSVM 就是一个抽象的 JS 虚拟机，让开发者可以直接操作。在 APP 中，我们可以运行多个 JSVM 来执行不同的任务。而且每一个 <code>JSContext</code>（下节介绍）都从属于一个 JSVM，一个 JSVM 中可以有多个 <code>JSContext</code>。每个 JSVM 都有自己独立的堆空间，GC 也只能处理 JSVM 内部的对象。所以说，不同的 JSVM 之间是无法传递值（JSValue）的。<br><img src="/images/lix_blog_83.png"><br>在一个 JSVM 中，只有一条线程可以跑 JS 代码，所以我们无法使用 JSVM 进行多线程处理 JS 任务。如果我们需要多线程处理 JS 任务的场景，就需要同时生成多个 JSVM，从而达到多线程处理的目的。</p>
+<p><strong>JS 的 GC 机制</strong><br>JS 同样也不需要我们去手动管理内存。JS 的内存管理使用的是 GC 机制（Tracing Garbage Collection）。不同于 OC 的引用计数，Tracing Garbage Collection 是由 <code>GCRoot</code>（<code>Context</code>）开始维护的一条引用链，一旦引用链无法触达某对象节点，这个对象就会被回收掉。如下图所示：<br><img src="/images/lix_blog_84.png"><br><code>JavaScriptCore</code> API 都是线程安全的。你可以在任意线程创建 <code>JSValue</code> 或者执行 JS 代码。如果一个线程正在使用 JSVM，所有其他想要使用该 JSVM 的线程都要等待。</p>
+<h3 id="2、JSContext"><a href="#2、JSContext" class="headerlink" title="2、JSContext"></a>2、JSContext</h3><p>一个 <code>JSContext</code> 表示了一次 JS 的执行环境。我们可以通过创建一个 <code>JSContext</code> 去调用 JS 脚本，访问一些 JS 定义的值和函数，同时也提供了让 JS 访问 Native 对象，方法的接口。</p>
+<p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">JSContext *context = [[JSContext alloc] init];</span><br><span class="line">[context evaluateScript:<span class="string">@&quot;var a = 1;var b = 2;&quot;</span>];</span><br><span class="line"><span class="comment">// evaluateScript: 返回值是 JavaScript 代码中最后一个生成的值</span></span><br><span class="line"><span class="built_in">NSInteger</span> sum = [[context evaluateScript:<span class="string">@&quot;a + b&quot;</span>] toInt32];</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;sum = %ld&quot;</span>,(<span class="type">long</span>)sum);</span><br></pre></td></tr></table></figure>
+<p>打印结果 <code>sum = 3</code></p>
+<p><code>JSContext</code> 中有一个 <code>globalObject</code>，它返回当前执行 <code>JSContext</code> 的全局对象，在 <code>WebKit</code> 中的 <code>JSContext</code> 实例获取 <code>globalObject</code> 将返回对应<br><code>WindowProxy</code> 对象，实际上 JS 代码都是在这个 <code>globalObject</code> 上执行的，<code>JSContext</code> 只是 <code>globalObject</code> 的一层壳，为了理解方便，一般可以直接将 <code>JSContext</code> 等价地理解为 <code>globalObject</code>。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">JSContext</span> : <span class="title">NSObject</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/*!</span></span><br><span class="line"><span class="comment">@property</span></span><br><span class="line"><span class="comment">@abstract Get the global object of the context.</span></span><br><span class="line"><span class="comment">@discussion This method retrieves the global object of the JavaScript execution context.</span></span><br><span class="line"><span class="comment"> Instances of JSContext originating from WebKit will return a reference to the</span></span><br><span class="line"><span class="comment"> WindowProxy object.</span></span><br><span class="line"><span class="comment">@result The global object.</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">readonly</span>, <span class="keyword">strong</span>) JSValue *globalObject;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>在 JS 中，对象就是一个引用类型的实例。与我们熟悉的 OC、Java 不一样，对象并不是一个类的实例，因为在 JS 中并不存在类的概念。ECMA 把对象定义为：无序属性的集合，其属性可以包含基本值、对象或者函数。从这个定义我们可以发现，JS 中的对象就是无序的键值对，这和 OC 中的 <code>NSDictionary</code> 何其相似。所以，我们可以把 <code>globalObject</code> 转成 <code>NSDictionary</code>：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">JSContext *context = [[JSContext alloc] init];</span><br><span class="line">[context evaluateScript:<span class="string">@&quot;var a = 1;var b = 2;&quot;</span>];</span><br><span class="line"><span class="built_in">NSLog</span>(<span class="string">@&quot;%@&quot;</span>,[context.globalObject toDictionary]);</span><br></pre></td></tr></table></figure>
+<p>打印结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    a = 1;</span><br><span class="line">    b = 2;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到这个 <code>globalObject</code> 保存了所有的变量（函数也会保存在 <code>globalObject</code> 里）。</p>
+<p>另外，我们可以通过 <code>exceptionHandler</code> 回调来监听来自 JS 的异常：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">context.exceptionHandler = ^(JSContext *context, JSValue *exception) &#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;%@&quot;</span>, exception);</span><br><span class="line"> &#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3、JSValue"><a href="#3、JSValue" class="headerlink" title="3、JSValue"></a>3、JSValue</h3><p><code>JSValue</code> 实例是一个指向 JS 值的引用指针。我们可以使用 JSValue 类，在 OC 和 JS 的基础数据类型之间相互转换。同时我们也可以使用这个类，去创建包装了 Native 自定义类的 JS 对象，或者是那些由 Native 方法或者<code> Block</code> 提供实现 JS 方法的 JS 对象。</p>
+<p>每个 <code>JSValue</code> 实例都来源于一个代表 <code>JavaScript</code> 执行环境的 <code>JSContext</code> 对象，这个执行环境就包含了这个 <code>JSValue</code> 对应的值。每个 <code>JSValue</code> 对象都持有其 <code>JSContext</code> 对象的强引用，只要有任何一个与特定 <code>JSContext</code> 关联的 <code>JSValue</code> 被持有（<code>retain</code>），这个 <code>JSContext</code> 就会一直存活。通过调用 <code>JSValue</code> 的实例方法返回的其他的 <code>JSValue</code> 对象都属于与最始的 <code>JSValue</code> 相同的 <code>JSContext</code>。</p>
+<p>每个 <code>JSValue</code> 都通过其 <code>JSContext</code> 间接关联了一个特定的代表执行资源基础的 <code>JSVirtualMachine</code> 对象。只能将一个 <code>JSValue</code> 对象传给由相同虚拟机管理的 <code>JSValue</code> 或者 <code>JSContext</code> 的实例方法。如果尝试把一个虚拟机的 <code>JSValue</code> 传给另一个虚拟机，将会触发一个 Objective-C 异常。<br><img src="/images/lix_blog_85.png"></p>
+<h3 id="4、JSManagedValue"><a href="#4、JSManagedValue" class="headerlink" title="4、JSManagedValue"></a>4、JSManagedValue</h3><p>Objective-C 用的是 ARC，不能自动解决循环引用问题，需要开发者手动处理，而 <code>JavaScript</code> 用的是 GC，所有的引用都是强引用，但是垃圾回收器会解决循环引用问题，<code>JavaScriptCore</code> 也一样，一般来说，大多数时候不需要我们去手动管理内存，但是有些情况需要注意：<br>不要在在一个导出到 <code>JavaScript</code> 的 native 对象中持有 <code>JSValue</code> 对象。因为每个 <code>JSValue</code> 对象都包含了一个 <code>JSContext</code> 对象，这种关系将会导致循环引用，因而可能造成内存泄漏。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">JSValue *value = [JSValue valueWithObject:<span class="string">@&quot;test&quot;</span> inContext:context];</span><br><span class="line">context[<span class="string">@&quot;block&quot;</span>] = ^()&#123;</span><br><span class="line">  <span class="built_in">NSLog</span>(<span class="string">@&quot;%@&quot;</span>, value);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>通常我们使用 <code>weak</code> 来修饰 <code>block</code> 内需要使用的外部引用以避免循环引用，由于 <code>JSValue</code> 对应的 JS 对象内存由虚拟机进行管理并负责回收，这种方法不能准确地控制 <code>block</code> 内的引用 <code>JSValue</code> 的生命周期，可能在 <code>block</code> 内需要使用 <code>JSValue</code> 的时候，其已经被虚拟机回收。<br><img src="/images/lix_blog_202.png"><br>因为 <code>JSValue</code> 的引用计数为 0，所以早早就被释放了，不能达到我们的预期。</p>
+<p>Apple 引入了有条件的强引用：conditional retain，而对应的类就叫 <code>JSManagedValue</code>。<br>一个 <code>JSManagedValue</code> 对象包含了一个 <code>JSValue</code> 对象，“有条件地持有（conditional retain）”的特性使其可以自动管理内存。</p>
+<p>最基本的用法就是用来在导入到 <code>JavaScript</code> 的 native 对象中存储 <code>JSValue</code>。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">JSValue *value = [JSValue valueWithObject:<span class="string">@&quot;test&quot;</span> inContext:context];</span><br><span class="line">JSManagedValue *managedValue = [JSManagedValue managedValueWithValue:value     andOwner:<span class="keyword">self</span>];</span><br><span class="line">context[<span class="string">@&quot;block&quot;</span>] = ^()&#123;</span><br><span class="line">  <span class="built_in">NSLog</span>(<span class="string">@&quot;%@&quot;</span>, [managedValue value]);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>所谓“有条件地持有（conditional retain）”，是指在以下两种情况任何一个满足的情况下保证其管理的 <code>JSValue</code> 被持有：</p>
+<ul>
+<li>可以通过 <code>JavaScript</code> 的对象图找到该 <code>JSValue</code>。</li>
+<li>可以通过 native 对象图找到该 <code>JSManagedValue</code>。</li>
+</ul>
+<p>使用 <code>addManagedReference:withOwner:</code> 方法可向虚拟机记录该关系。反之如果以上条件都不满足，<code>JSManagedValue</code> 对象就会将其 <code>value</code> 置为 <code>nil</code> 并释放该 <code>JSValue</code>。<br><img src="/images/lix_blog_203.png" alt="upload successful"></p>
+<h3 id="5、JSExport"><a href="#5、JSExport" class="headerlink" title="5、JSExport"></a>5、JSExport</h3><p>实现 <code>JSExport</code> 协议可以开放 OC 类和它们的实例方法、类方法，以及属性给 JS 调用。<br>而通常情况下，我们如果想在 JS 环境中使用 OC 中的类和对象，需要它们实现 <code>JSExport</code> 协议，来确定暴露给 JS 环境中的属性和方法。比如我们需要向 JS 环境中暴露一个 <code>Person</code> 的类与获取名字的方法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@protocol</span> <span class="title">PersonProtocol</span> &lt;<span class="title">JSExport</span>&gt;</span></span><br><span class="line">- (<span class="built_in">NSString</span> *)fullName; <span class="comment">// fullName 用来拼接 firstName 和 lastName，并返回全名</span></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">JSExportPerson</span> : <span class="title">NSObject</span> &lt;<span class="title">PersonProtocol</span>&gt;</span></span><br><span class="line">  </span><br><span class="line">- (<span class="built_in">NSString</span> *)sayFullName ;<span class="comment">// sayFullName 方法</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">copy</span>) <span class="built_in">NSString</span> *firstName;</span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">copy</span>) <span class="built_in">NSString</span> *lastName;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>然后，我们可以把一个 <code>JSExportPerson</code> 的一个实例传入 <code>JSContext</code>，并且可以直接执行 <code>fullName</code> 方法：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"> JSExportPerson *person = [[JSExportPerson alloc] init];</span><br><span class="line">context[<span class="string">@&quot;person&quot;</span>] = person;</span><br><span class="line">person.firstName = <span class="string">@&quot;li&quot;</span>;</span><br><span class="line">person.lastName =<span class="string">@&quot;fengfeng&quot;</span>;</span><br><span class="line">[context evaluateScript:<span class="string">@&quot;log(person.fullName())&quot;</span>]; <span class="comment">//调 Native方 法，打印出 person 实例的全名</span></span><br><span class="line">[context evaluateScript:<span class="string">@&quot;person.sayFullName())&quot;</span>]; <span class="comment">// 提示 TypeError，&#x27;person.sayFullName&#x27; is undefined</span></span><br></pre></td></tr></table></figure>
+<p>这就是一个很简单的使用 <code>JSExport</code> 的例子，但请注意，我们只能调用在该对象在 <code>JSExport</code> 中开放出去的方法，如果并未开放出去，如上例中的 <code>sayFullName</code> 方法，直接调用则会报 <code>TypeError</code> 错误，因为该方法在 JS 环境中并未被定义。</p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/61952/">
+        <span class="nav-arrow">← </span>
+        
+          NSNotification 实现原理
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/42986/">
+        
+          UI 渲染原理与优化
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/56329/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="iOS 的冷启动流程可用下图表示：接下来，详细介绍 APP 启动流程中的各个阶段： 一、exec()iOS 操作环境的操作系统部分是 Darwin，Darwin 是一种类 Unix 操作系统，其内核是 XNU，XNU 是一个宏内核 BSD 与微内核 Mach 混合内核。 在 iOS 中，用户环境始于 launchd 进程，它是第一个被内核启动的用户态进程，launchd 由操作系统内核启动，Mac">
+<meta property="og:type" content="article">
+<meta property="og:title" content="APP 启动优化 1 - 冷启动流程">
+<meta property="og:url" content="https://www.lixkit.com/posts/40965/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="iOS 的冷启动流程可用下图表示：接下来，详细介绍 APP 启动流程中的各个阶段： 一、exec()iOS 操作环境的操作系统部分是 Darwin，Darwin 是一种类 Unix 操作系统，其内核是 XNU，XNU 是一个宏内核 BSD 与微内核 Mach 混合内核。 在 iOS 中，用户环境始于 launchd 进程，它是第一个被内核启动的用户态进程，launchd 由操作系统内核启动，Mac">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_108.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_109.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_110.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_111.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_112.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_113.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_114.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_115.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_116.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_117.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_191.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_119.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_120.png">
+<meta property="article:published_time" content="2021-04-02T16:00:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.899Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="优化">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_108.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      APP 启动优化 1 - 冷启动流程 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>APP 启动优化 1 - 冷启动流程</h2>
+  <p class="post-date">2021-04-02</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><p>iOS 的冷启动流程可用下图表示：<br><img src="/images/lix_blog_108.png"><br>接下来，详细介绍 APP 启动流程中的各个阶段：</p>
+<h2 id="一、exec"><a href="#一、exec" class="headerlink" title="一、exec()"></a>一、exec()</h2><p>iOS 操作环境的操作系统部分是 Darwin，Darwin 是一种类 Unix 操作系统，其内核是 XNU，XNU 是一个宏内核 BSD 与微内核 Mach 混合内核。</p>
+<p>在 iOS 中，用户环境始于 <code>launchd</code> 进程，它是第一个被内核启动的用户态进程，<code>launchd</code> 由操作系统内核启动，Mac OS 中 <code>launchd</code> 不止一个，第一个为 <code>PID 1</code>，由内核启动，如果有用户登录进系统，则会创建另一个 <code>launchd</code>，这是由第一个 <code>launchd</code> fork 出来的，并且所有权属于登录用户。由于 iOS 不需要登录，所以只有一个系统范围的 <code>launchd</code>，并且它是系统运行期间唯一不能终止的进程，当系统关闭时，它作为最后一个进程退出。<br><img src="/images/lix_blog_109.png"><br><code>launchd</code> 主要负责直接或间接的启动系统中的其他进程。它是用户模式里所有进程的父进程，同时也将负责两种后台作业：守护程序和代理程序。</p>
+<ul>
+<li>守护程序（daemon）：守护程序由系统自动启动，不考虑是否有用户登录进系统，是后台服务，通常和用户没有交互。比如 push 通知、外接设备插入的处理和 XPC 等。</li>
+<li>代理程序（agent）：是一类特殊的守护程序，只有在用户登录的时候才启动，可以和用户交互，有的程序还会有 GUI，比如 MacOS 的 Finder 或 iOS 的 SpringBoard。</li>
+</ul>
+<p>当启动一个 APP 时，<code>launchd</code> 进程（<code>launchd</code> 是用户态进程）会通过 <code>fork()</code> 函数进行系统调用，进入内核态克隆出另一个 <code>launchd</code> 进程，再通过 <code>exec()</code> 函数进行系统调用，传入目标 APP 对应主 Mach-O 文件的路径，作为该进程的内容。</p>
+<p>也就是说，我们在 Mac OS 和 iOS 里启动的 APP，父进程 parent process 都是 <code>launchd</code>，例如我们通过活动监视器双击任意一个进程可以看到这点：<br><img src="/images/lix_blog_110.png"></p>
+<p>在 iOS 的 crash log 里我们也能看到 APP 的 parent process 是 <code>launchd</code>：<br><img src="/images/lix_blog_111.png"></p>
+<p>那 <code>launchd</code> 进程的 parent process 是谁呢？<br><img src="/images/lix_blog_112.png"><br><code>launchd</code> 的 parent process 是 <code>kernel_task</code>。<code>kernel_task</code> 进程就是内核进程本程了，在内核启动时自行创建。</p>
+<p><strong>这里提到内核态和用户态，那内核态和用户态是什么呢？</strong></p>
+<p>内核控制着操作系统最核心的部分，为了防止应用程序崩溃而导致的内核崩溃，内核与应用程序之间需要进行严格的分离。基于软件的分离会产生巨大的开销，因此现代的操作系统都是依靠硬件来分离。分离的结果就是用户态与内核态。</p>
+<p>用户态和内核态之间有两种切换方式：</p>
+<ul>
+<li>自愿转换：比如系统调用；</li>
+<li>非自愿转换：当发生异常、中断或处理器陷阱的时候，代码的执行会被挂起，并且保留发生错误时候的完整状态。控制权被转交给预定义的内核态错误处理程序或中断服务程序。</li>
+</ul>
+<p>在 XNU 中，系统调用有四种类别：</p>
+<ul>
+<li>BSD 系统调用</li>
+<li>Mach 陷阱</li>
+<li>机器相关调用</li>
+<li>诊断调用</li>
+</ul>
+<p><code>exec()</code> 函数的作用是根据指定的文件名找到可执行文件，并用它来取代调用进程的内容。</p>
+<p>UNIX 提供了 6 种不同的 <code>exec()</code> 函数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#include&lt;unistd.h&gt;</span><br><span class="line">int execl(const char *pathname, const char *arg0, ...  /* (char *)0 */ );</span><br><span class="line">int execv(const char *pathname, char *const argv[]);</span><br><span class="line">int execle(const char *pathname, const char *arg0, ...  /* (char *)0, char *const envp[] */ );</span><br><span class="line">int execve(const char *pathname, char *const argv[], char *const envp[]);</span><br><span class="line">int execlp(const char *filename, const char *arg0, ...  /* (char *)0 */ );</span><br><span class="line">int execvp(cosnt char *filename, char *const argv[]);</span><br></pre></td></tr></table></figure>
+<p>其中只有 <code>execve</code> 是真正意义上的系统调用，其它都是在此基础上经过包装的库函数，包括 <code>exec()</code> 函数。</p>
+<p>也就是说，执行完 <code>exec()</code> 函数，APP 对应的 Mach-O 会被加载进新创建的进程里了。</p>
+<h2 id="二、加载-Mach-O"><a href="#二、加载-Mach-O" class="headerlink" title="二、加载 Mach-O"></a>二、加载 Mach-O</h2><h3 id="1、Mach-O-的结构"><a href="#1、Mach-O-的结构" class="headerlink" title="1、Mach-O 的结构"></a>1、Mach-O 的结构</h3><p>Mach-O（Mach Object 的简写）是 Mac 和 iOS 可执行文件的格式。<br>常见的 Mach-O 格式文件有：</p>
+<ul>
+<li>目标文件 .o</li>
+<li>库文件<ul>
+<li>.a</li>
+<li>.dylib</li>
+<li>.framework</li>
+</ul>
+</li>
+<li>可执行文件</li>
+<li>dyld ( 动态链接器 )</li>
+<li>.dsym ( 符号表 )</li>
+</ul>
+<p>我们可以使用 MachOView 查看一个 Mach-O 文件内容：<br><img src="/images/lix_blog_113.png"><br>我们可以生成只包含一种架构的 Mach-O 文件，比如 armv7。当然也可以编译生成多架构的的 Mach-O 文件，这种包含多种架构的我们称之为通用 Mach-O，也可以称为 Fat Mach-O。运行通用 Mach-O 的时候，加载器会选择合适的架构的代码去执行。我们 APP 的主二进制文件就是 Fat Mach-O：<br><img src="/images/lix_blog_114.png"><br>Mach-O 可以分为三部分：</p>
+<ul>
+<li>Header</li>
+<li>Load Commands</li>
+<li>Data<img src="/images/lix_blog_115.png" style="width:50%;"></li>
+</ul>
+<p><code>Header</code> 存储该二进制文件的一般信息，例如：架构类型、加载命令的数量等。Header 的最开始是 Magic Number，表示这是一个 Mach-O 文件，除此之外还包含一些 flags，这些 flags 会影响 Mach-O 的解析。</p>
+<p><code>Load Commands</code> 即加载命令，又称指令。这些命令在被调用时清晰地指导了如何设置并加载二进制数据。有一些命令是由内核加载器直接使用的，其他命令是由动态链接器（<code>dyld</code>）处理的。其中 <code>LC_LOAD_DYLINKER</code> 命令中存储了动态链接器（<code>dyld</code>）的路径信息。</p>
+<p><img src="/images/lix_blog_116.png"><br><code>Data</code> 部分包含了实际的代码和数据，<code>Data</code> 被分割成很多个 <code>Segment</code>，每个 <code>Segment</code> 又被划分成很多个 <code>Section</code>，分别存放不同类型的数据。<br>标准的三个 <code>Segment</code> 是 <code>TEXT</code>、<code>DATA</code>、<code>LINKEDIT</code>，也支持自定义：</p>
+<ul>
+<li><code>TEXT</code>，代码段，只读可执行，存储函数的二进制代码(<code>__TEXT</code>)，常量字符串(<code>__cstring</code>)，Objective C 的类&#x2F;方法名等信息</li>
+<li><code>DATA</code>，数据段，读写，存储 Objective C 的字符串(<code>__cfstring</code>)，以及运行时的元数据：<code>class</code>&#x2F;<code>protocol</code>&#x2F;<code>method</code>…</li>
+<li><code>LINKEDIT</code>，启动 App 需要的信息，如 <code>bind</code> &amp; <code>rebase</code> 的地址，代码签名信息，符号表…</li>
+</ul>
+<h3 id="2、虚拟内存"><a href="#2、虚拟内存" class="headerlink" title="2、虚拟内存"></a>2、虚拟内存</h3><p>用户态的一个优点在于虚拟内存隔离，每个进程都独享一个私有的地址空间。何谓虚拟内存呢？</p>
+<p>内存可以分为虚拟内存和物理内存，其中物理内存是实际占用的内存，虚拟内存是在物理内存之上建立的一层逻辑地址，保证内存访问安全的同时为应用提供了连续的地址空间。</p>
+<p>系统将虚拟内存和物理内存分割成统一大小的单元，叫做页(page)。在早期的 iOS 里，页大小均为 4K；之后基于 A7 和 A8 的 iOS 里，采用虚拟内存每页 16K，物理内存每页 4K；基于 A9 或更新 CPU 的 iOS 里，页大小均为 16K。</p>
+<p>CPU 有个内存管理单元（MMU）, 它维护了一张页表（page table），内部记录了虚拟地址和物理地址映射关系。用户访问虚拟地址时，会自动被 MMU 转换成物理地址。当 CPU 访问的虚拟地址并未映射到物理地址时，会发生 <code>Page Fault</code>：暂停当前执行的程序代码，然后分配一块干净的物理内存，从磁盘中加载所需的一页数据到该物理内存，同时更新页表，然后继续执行程序代码。</p>
+<p>iOS 是通过 mmap（全称 memory map，一种内存映射技术）做物理内存和虚拟内存映射的。进程向系统申请内存时，系统也并不会直接返回物理内存的地址，而是返回一个虚拟内存地址。只有在 CPU 需要访问该虚拟内存地址时，系统才会分配并映射到物理内存。</p>
+<p>如何查看 APP 启动时候发生 <code>Page Fault</code> 的次数呢？可以借助 Instrument 中的 System Trace 工具，System Trace 调试结束会获取到启动过程中的分析数据，在结果页面选中主线程，结果中的 File Backed Page In 次数就是 <code>Page Fault</code> 次数：<br><img src="/images/lix_blog_117.png"><br>所以，Page Fault 次数又被称为 Page In 次数。</p>
+<p>同样的，加载 Mach-O 实际上也是通过 mmap 将 Mach-O 文件映射到 APP 进程的虚拟内存里的，这时候只分配了虚拟内存，并没有分配物理内存。如果访问一个虚拟内存地址，而物理内存中不存在的时候，触发一个 <code>Page In</code>，分配物理内存，并把文件中的内容拷贝到物理内存里。如果在操作系统的物理内存里有缓存，则会触发一个 Page Cache Hit，后者是比较快的，这也是热启动比冷启动快的原因之一。</p>
+<p>启动的路径上会触发很多次 <code>Page In</code>，其实也比较容易理解，因为启动的会读写二进制中的很多内容。<code>Page In</code> 会占去启动耗时的很大一部分，我们来看看单个 <code>Page In</code> 的过程：<br><img src="/images/lix_blog_191.png" style="width:50%;"></p>
+<ul>
+<li>MMU 找到空闲的物理内存页面</li>
+<li>触发磁盘 IO，把数据读入物理内存</li>
+<li>如果是 <code>TEXT</code> 段的页，要进行解密</li>
+<li>对解密后的页，进行签名验证</li>
+</ul>
+<p>其中解密是大头，IO 其次。为什么要解密呢？</p>
+<p>因为 iTunes Connect 会对上传 Mach-O 的 <code>TEXT</code> 段进行加密，防止 IPA 下载下来就直接可以看到代码。这也就是为什么逆向里会有个概念叫做“砸壳”，砸的就是这一层 TEXT 段加密。iOS 13 对这个过程进行了优化，<code>Page In</code> 的时候不需要解密了（iOS 13 启用了 dyld3，提前生成了启动闭包文件）。</p>
+<p>在 APP 启动过程，<code>Page In</code> 是一个比较耗时的过程，针对这一块，可以通过二进制重排进行优化（后续内容讲解）。</p>
+<h3 id="3、ASLR"><a href="#3、ASLR" class="headerlink" title="3、ASLR"></a>3、ASLR</h3><p>根据前面内容我们可以知道进程在自己私有的虚拟地址空间中执行。按照传统的方式，APP 在某个架构上进程初始虚拟内存镜像都是基本一致的，使得内存中地址分布具有非常强烈的可预测性，给黑客提供了很大的施展空间，是很不安全的。</p>
+<p>大部分操作系统，包括 iOS，都采用了 <code>ASLR</code>（address space layout randomization，地址空间布局随机化） 技术有效避免攻击，通过增加攻击者预测目的地址难度，防止攻击者直接定位攻击代码位置，达到阻止攻击的目的的一种技术。<code>ASLR</code> 使进程每一次启动时，地址空间都会被简单地随机化——只是偏移，而不是搅乱，内存整体布局保持不变。实现方法在通过 mmap 将 Mach-O 文件映射到 APP 进程的虚拟内存时，通过内核将 Mach-O 的 Segment “平移”某个随机系数。所以在使用了 <code>ASLR</code> 之后：<br><code>实际地址（偏移后地址）= 偏移前地址 + ASLR</code></p>
+<h2 id="三、加载-dyld-加载动态库"><a href="#三、加载-dyld-加载动态库" class="headerlink" title="三、加载 dyld &amp; 加载动态库"></a>三、加载 dyld &amp; 加载动态库</h2><h3 id="1、动态库与静态库"><a href="#1、动态库与静态库" class="headerlink" title="1、动态库与静态库"></a>1、动态库与静态库</h3><p>在了解 dyld 之前，先来看下动态库和静态库：</p>
+<ul>
+<li>静态库在程序编译时会被链接到目标代码中一起打包生成可执行文件，以 .a 和 .framework 为文件后缀名。</li>
+<li>而动态库在程序编译时并不会被链接到目标代码中，只是在程序运行时才被载入，以 .dylib 和 .framework 为文件后缀名（系统直接提供给我们的 framework 都是动态库！）。</li>
+</ul>
+<p>我们在 MyApp.app 内通过 otool 命令查看主二进制文件依赖的动态链接库：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ otool -L MyApp</span><br><span class="line">MyApp:</span><br><span class="line">    /System/Library/Frameworks/CoreGraphics.framework/CoreGraphics</span><br><span class="line">    /System/Library/Frameworks/UIKit.framework/UIKit</span><br><span class="line">    /System/Library/Frameworks/Foundation.framework/Foundation</span><br><span class="line">    /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation</span><br><span class="line">    /usr/lib/libobjc.A.dylib</span><br><span class="line">    /usr/lib/libSystem.dylib</span><br><span class="line">    ......</span><br></pre></td></tr></table></figure>
+<p>静态库优缺点</p>
+<ul>
+<li>优点<ul>
+<li>静态库被打包到可执行文件中，编译成功后可执行文件可以独立运行，不需要依赖外部环境。</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li>编译生成的可执行文件会变大，如果静态库更新必须重新编译。</li>
+<li>多个 APP 使用同一个静态库，每个 APP 都会拷贝一份，浪费内存。</li>
+</ul>
+</li>
+</ul>
+<p>动态库优缺点</p>
+<ul>
+<li>优点<ul>
+<li>减小编译生成的可执行文件(也可简单理解为 APP)的体积。</li>
+<li>共享内容，节省资源。</li>
+<li>通过更新动态库，达到更新程序的目的。</li>
+</ul>
+</li>
+<li>缺点<ul>
+<li>可执行文件不可以单独运行，必须依赖外部环境。</li>
+</ul>
+</li>
+</ul>
+<p>其中动态库分动态链接库和动态加载库两种：</p>
+<ul>
+<li>动态链接库(Dynamic Link Library，简写 dylib)：在编译阶段需要指定 app 需要依赖哪些动态库。当运行可执行文件时，如果系统还没有加载过这些库时，就会随着运行可执行文件的加载一起加载这些动态库。如果有多个可执行文件依赖同一个动态库，不会重复加载。iOS 中用到的所有系统 .framework 都是动态链接库。</li>
+<li>动态加载库：编译阶段不需要指定 app 需要依赖哪些动态库。当运行过程中需要加载某个动态库时，就会用 <code>dlopen</code> 函数动态的把库加载到内存中使用。</li>
+</ul>
+<p>需要特别注意的是，上面提到的动态库多个 APP 共用，节省内存，这是针对系统动态库而言的。对于我们自己的动态库，会被打包进 IPA 文件中。所以，对于使用非系统的动态库并不能有效减少包体积。</p>
+<p>既然我们自己的动态库无法实现多 APP 共用，不能减少包体积，而且还会影响启动速度，那动态库还有什么用呢？iOS 8 之后，开放了 App Extension 功能，可以为一个应用创建插件，APP Extension 和主 APP 是两个独立的进程，两者之间共享代码逻辑就必须使用动态库了。</p>
+<p>上面提到，动态链接库在程序运行时才被载入，那么这些动链接态库是如何被载入的呢？这就是 dyld 的工作了。</p>
+<p>把主二进制 mmap 进来后，读取 <code>load command</code> 中的 <code>LC_LOAD_DYLINKER</code> 命令，找到 <code>dyld</code> 的的路径。然后 mmap <code>dyld</code> 到虚拟内存，找到<code> dyld</code> 的入口函数 <code>_dyld_start</code>，把 PC 寄存器设置成 <code>_dyld_start</code>，接下来启动流程交给了 <code>dyld</code>。</p>
+<p>注意这个过程都是在内核态完成的，这些流程完成后，将会进入用户态由 <code>dyld</code> 完成后续的工作，这里提到了 PC 寄存器，PC 寄存器存储了下一条指令的地址，程序的执行就是不断修改和读取 PC 寄存器来完成的。</p>
+<h3 id="2、dyld-2-和-dyld-3"><a href="#2、dyld-2-和-dyld-3" class="headerlink" title="2、dyld 2 和 dyld 3"></a>2、dyld 2 和 dyld 3</h3><p><code>dyld</code> 全名 The dynamic link editor，即动态链接器，是 iOS &amp; Mac OS 系统的重要组成部分。在内核将 APP 的主 Mach-O 文件和 <code>dyld</code> 加载完成后，后续的流程将交由 <code>dyld</code> 来完成。<code>dyld</code> 是 in-process 的，也就是在我们 APP 的进程里工作的。<code>dyld</code> 负责解析 Mach-O 的 Header, 得到所依赖的 <code>dylib</code>（动态链接库），通过递归的方式把全部需要的 <code>dylib</code> 都加载进来。</p>
+<p>不过，需要注意的是，<code>dyld</code> 工作不仅仅如此，APP 启动流程中的 <code>Rebase</code>、<code>Bind</code> 等一直到执行 <code>main</code> 函数，都是由 <code>dyld</code> 来完成的。<code>dyld</code> 主要有两个版本：<code>dyld 2</code> 和 <code>dyld 3</code>，iOS 3.1～iOS 12 系统使用 <code>dyld 2</code>，iOS 13 开始采用 <code>dyld 3</code>。</p>
+<p><code>dyld 2</code> 主要工作过程如下：</p>
+<ol>
+<li>解析 Mach-O 的 <code>Header</code></li>
+<li>查找依赖库</li>
+<li>映射 Mach-O 文件到进程内存地址空间中</li>
+<li>执行符号查找</li>
+<li>进行 <code>rebase</code> 和 <code>bind</code></li>
+<li>运行所有初始化器</li>
+<li>执行 <code>main</code> 函数<img src="/images/lix_blog_119.png" style="width:50%;"></li>
+</ol>
+<p>iOS 13 开始 Apple 对三方 App 启用了 <code>dyld 3</code>，<code>dyld 3</code> 将上面 <code>dyld 2</code> 工作过程的第 （1）、（2）、（3） 这三步在另外一个进程上提前（APP 安装或升级时）处理好了，并且将处理结果保存到启动闭包中，并将闭包存储到磁盘（存储在沙盒的 tmp&#x2F;com.apple.dyld 目录）中。<br><img src="/images/lix_blog_120.png" style="width:70%;"></p>
+<p><code>dyld 3</code> 被分为了三个组件：</p>
+<ul>
+<li><p>进程外的 MachO 解析器</p>
+<ul>
+<li><p>预先处理了所有可能影响启动速度的 search path、@rpaths 和环境变量</p>
+</li>
+<li><p>然后分析 Mach-O 的 Header 和依赖，并完成了所有符号查找的工作</p>
+</li>
+<li><p>最后将这些结果创建成了一个启动闭包</p>
+</li>
+<li><p>这是一个普通的 daemon 进程（守护进程），可以使用通常的测试架构</p>
+</li>
+</ul>
+</li>
+<li><p>进程内的引擎，用来运行启动闭包</p>
+<ul>
+<li><p>这部分在进程中处理</p>
+</li>
+<li><p>验证启动闭包的安全性，然后映射到 dylib 之中，再跳转到 main 函数</p>
+</li>
+<li><p>不需要解析 Mach-O 的 Header 和依赖，也不需要符号查找。</p>
+</li>
+</ul>
+</li>
+<li><p>启动闭包缓存服务</p>
+<ul>
+<li><p>系统 App 的启动闭包被构建在一个 Shared Cache 中， 我们甚至不需要打开一个单独的文件</p>
+</li>
+<li><p>对于第三方的 App，闭包创建时机如下：</p>
+<ul>
+<li>App 安装&#x2F;升级后首次启动时</li>
+<li>重启手机后首次启动 App 时<ul>
+<li>因为闭包存储在沙盒 temp 目录中，重启 App 会被清除。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>最终闭包中内容如下：</p>
+<ul>
+<li><code>dependends</code>：依赖动态库列表</li>
+<li><code>fixup</code>：<code>rebase</code> &amp; <code>bind</code> 的地址</li>
+<li><code>initializer-order</code>：初始化器调用顺序</li>
+<li><code>optimizeObjc</code>：Objective C 的元数据</li>
+<li>其他：main entry, uuid…</li>
+</ul>
+<p>相较于 <code>dyld 2</code>，<code>dyld 3</code> 把很多耗时的查找、计算和 I&#x2F;O 的事前都预先处理好了，这使得启动速度有了很大的提升。因为这些信息是每次启动都需要的，把信息存储到一个缓存文件就能避免每次都解析，尤其是 Objective C 的运行时数据（Class&#x2F;Method…）解析非常慢。</p>
+<h2 id="四、Rebase-Bind"><a href="#四、Rebase-Bind" class="headerlink" title="四、Rebase &amp; Bind"></a>四、Rebase &amp; Bind</h2><p>这里需要先了解下什么是 <code>PIC</code>。</p>
+<p><code>PIC</code>，全拼 Position Independ Code，中文名称：位置独立代码、地址无关代码，又称地址无关可执行文件（英文: position-independent executable，缩写为 <code>PIE</code>）。是指可在主存储器中任意位置正确地运行，而不受其绝对地址影响的一种机器码。<code>PIC</code> 广泛使用于共享库，使得同一个库中的代码能够被加载到不同进程的地址空间中。</p>
+<p>iOS 系统有许多动态链接库（<code>dylib</code>），只有在使用的时候，这些动态链接库才会被系统加载到内存中。这些系统的动态链接库有一个公用的共享缓存区（也叫共享缓存库），由于动态链接库在系统中只保留一份内存，所以当某个 APP 使用到这个动态链接库的时候，就会去访问这个共享缓存区。</p>
+<p>因为动态链接库可以被多个进程共享，所以在编译的时候，是不知道动态链接库中的对象或方法在一个进程中的虚拟内存地址的，只有在 APP 运行时才知道对应虚拟内存地址。当 APP 要访问一个 Mach-O 外部（例如动态链接库中的）的对象或方法时，<code>PIC</code> 会在 Mach-O 文件的 <code>__DATA</code> 段中创建一个指针，指向动态链接库中的对应的方法，在调用方法时，实际上是通过这个指针进行间接调用的。将这个指针指向动态链接库中对象或方法的过程就叫做 <code>Bind</code>（绑定）。FishHook 也正是利用修改这个指针的指向实现的 Hook 目的。</p>
+<p>由于 <code>ASLR</code> 的存在，Mach-O 文件和动态链接库在虚拟内存中的加载地址每次启动都不固定，发生偏移。所以就需要进行 <code>Rebase</code> 操作修正 <code>__DATA</code> 段中这个指针的指向，即将地址加上内存偏移量得到真实地址。</p>
+<ul>
+<li><p>Rebase</p>
+<ul>
+<li>修复指针偏移。这是因为 Mach-O 在 mmap 到虚拟内存的时候，起始地址会有一个 ASLR 的随机的偏移量 slide，需要把内部的指针指向加上这个 slide。</li>
+</ul>
+</li>
+<li><p>Bind</p>
+<ul>
+<li>绑定指针与动态链接库中的函数的地址。因为对于动态链接库中的函数，只有运行时才知道它的地址是什么，Bind 就是把指针指向这个地址。</li>
+</ul>
+</li>
+</ul>
+<p><strong>这里为什么一定要通过 <code>Rebase</code> 修复内部指针而不是在 mmap 时直接修改 Mach-O 中对应内存地址呢？</strong></p>
+<p>这是因为在 Mach-O 编译时 Xcode 会进行代码签名（Code Sign），Code Sign 签名时，会对每个 page（这里是指 Segment Data）进行签名生成一个单独的加密散列值，并存储到 <code>__LINKEDIT</code> 中去，系统在加载时会校验每页内容确保没有被篡改，所以如果直接修改对应内存地址会导致签名验证不通过，所以不能直接修改 Image。<code>Rebase</code> 的时候只需要增加对应的偏移量即可，待 <code>Rebase</code> 的数据都存放在 <code>__LINKEDIT</code> 中。</p>
+<h2 id="五、Objc-setup-Initializers"><a href="#五、Objc-setup-Initializers" class="headerlink" title="五、Objc setup &amp; Initializers"></a>五、Objc setup &amp; Initializers</h2><p><code>dyld</code> 在 <code>Bind</code> &amp; <code>Rebase</code> 流程结束之后，首先会执行 libSystem 的 Initializer，做一些最基本的初始化：</p>
+<ul>
+<li>初始化 libdispatch（libdispatch 的别称是 GCD）</li>
+<li>初始化 objc runtime、注册 sel、加载 category</li>
+</ul>
+<p>接下来会进行 main 函数之前的一些初始化，主要包括 +load 和 static initializer，两者调用顺序根据 Apple 官方文档对 +load 方法的描述可以知道：</p>
+<blockquote>
+<p>he order of initialization is as follows:<br>All initializers in any framework you link to.<br>All +load methods in your image.<br>All C++ static initializers and C&#x2F;C++ <strong>attribute</strong>(constructor) functions in your image.<br>All initializers in frameworks that link to you.<br>In addition:<br>A class’s +load method is called after all of its superclasses’ +load methods.<br>A category +load method is called after the class’s own +load method.</p>
+</blockquote>
+<p>即：<strong>先调用 <code>+load</code> 方法，再调用 static initializer 相关方法。父类 <code>+load</code> 方法先于子类被调用，类的 <code>+load</code> 方法先于分类被调用。</strong></p>
+<p><strong>static initializer 静态初始化产生的条件</strong><br>包括但不限于以下几种逻辑会导致静态初始化：</p>
+<h4 id="1-attribute-constructor-修饰的函数"><a href="#1-attribute-constructor-修饰的函数" class="headerlink" title="(1) attribute((constructor)) 修饰的函数"></a>(1) <strong>attribute</strong>((constructor)) 修饰的函数</h4><p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">__attribute__((constructor)) <span class="type">void</span> myentry()&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;constructor&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="2-通过执行代码初始化全局变量"><a href="#2-通过执行代码初始化全局变量" class="headerlink" title="(2) 通过执行代码初始化全局变量"></a>(2) 通过执行代码初始化全局变量</h4><p>例如需要执行 C&#x2F;C++ 函数</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">bool</span> initBar()&#123;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    ++i;</span><br><span class="line">    <span class="keyword">return</span> i == <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="type">bool</span> globalBar = initBar();</span><br><span class="line"><span class="type">bool</span> globalBar2 = initBar();</span><br></pre></td></tr></table></figure>
+
+<h2 id="六、main"><a href="#六、main" class="headerlink" title="六、main"></a>六、main</h2><p><code>+load</code> 和 static initializer 执行完毕之后，<code>dyld</code> 会把启动流程交给 App，开始执行 main 函数。main 函数里要做的最重要的事情就是初始化 UIKit。UIKit 主要会做两个大的初始化：</p>
+<ul>
+<li>初始化 UIApplication</li>
+<li>启动主线程的 Runloop</li>
+</ul>
+<p>由于主线程的 <code>dispatch_async</code> 是基于 runloop 的，所以在 +load 里如果调用了 <code>dispatch_async</code>，<code>dispatch_async</code> 相关任务会在这个阶段执行。</p>
+<p>之后，就进入到我们熟悉的 UIApplicationDelegate 流程了。</p>
+<p><strong>参考：</strong><br><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzI1MzYzMjE0MQ==&mid=2247485101&idx=1&sn=abbbb6da1aba37a04047fc210363bcc9&scene=21&token=2051547505&lang=zh_CN#wechat_redirect">抖音APP启动速度提升实践</a></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/16217/">
+        <span class="nav-arrow">← </span>
+        
+          图片加载原理及优化
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/29857/">
+        
+          APP 启动优化 2 - 优化方案
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/40965/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

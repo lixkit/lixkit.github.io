@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta property="og:type" content="website">
+<meta property="og:title" content="李峰峰博客">
+<meta property="og:url" content="https://www.lixkit.com/page/2/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="李峰峰, iOS, 底层原理, Runtime, Runloop, 热修复">
+<meta name="twitter:card" content="summary">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link active">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link mobile-active">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <main class="app-body">
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/63748/">编译原理之 OC 编译</a>
+      </h2>
+      <p class="article-date">2022年5月1日</p>
+      
+        
+  <a href="/tags#编译原理" >
+    <span class="tag-code">编译原理</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、低级语言与高级语言1、低级语言低级语言（Low-level Language）是接近计算机硬件的编程语言，是计算机可以直接执行或接近直接执行的语言。
+常见的低级语言包括：
+
+机器语言
+
+计算机可以直接执行的二进制代码（即：机器码），由 0 和 1 组成。每一个机器指令对应于特定的处理器操 ...
+        
+      </div>
+      <a class="more" href="/posts/63748/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/29690/">APP 启动优化 3 - 二进制重排</a>
+      </h2>
+      <p class="article-date">2021年5月11日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、二进制重排原理1、Page In 与 二进制重排在前面总结的冷启动流程中已经提到了 Page In，这里再简单补充下，在 iOS 中，内存管理主要由操作系统、CPU 协同完成：
+
+操作系统负责分配物理内存，并更新存放物理内存、虚拟内存映射关系的页表。
+位于 CPU 上的 MMU（内存管理 ...
+        
+      </div>
+      <a class="more" href="/posts/29690/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/29857/">APP 启动优化 2 - 优化方案</a>
+      </h2>
+      <p class="article-date">2021年4月10日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、启动时长监控1、阶段划分一般而言，对于冷启动时长，一般是统计从用户点击图标到首屏展示出来这段时间的时长。这个过程可以粗粒度分为下面两个阶段进行统计：这里一般是使用 root viewController 的 viewDidAppear 时间作为首屏渲染完成时间，也就是 APP 首屏加载完 ...
+        
+      </div>
+      <a class="more" href="/posts/29857/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/40965/">APP 启动优化 1 - 冷启动流程</a>
+      </h2>
+      <p class="article-date">2021年4月2日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          iOS 的冷启动流程可用下图表示：接下来，详细介绍 APP 启动流程中的各个阶段：
+一、exec()iOS 操作环境的操作系统部分是 Darwin，Darwin 是一种类 Unix 操作系统，其内核是 XNU，XNU 是一个宏内核 BSD 与微内核 Mach 混合内核。
+在 iOS 中，用户 ...
+        
+      </div>
+      <a class="more" href="/posts/40965/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/16217/">图片加载原理及优化</a>
+      </h2>
+      <p class="article-date">2021年2月18日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、图片加载（解压缩）原理1、图片加载的工作流概括来说，从磁盘中加载一张图片，并将它显示到屏幕上，中间的主要工作流如下：
+
+(1) 将 UIImage 赋值给屏幕上 UIImageView；
+(2) Core Animation 渲染流水线被触发；
+(3) Core Animation 渲染 ...
+        
+      </div>
+      <a class="more" href="/posts/16217/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/42986/">UI 渲染原理与优化</a>
+      </h2>
+      <p class="article-date">2021年2月12日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、图像渲染原理1、iOS 双缓冲机制图像的渲染离不开 CPU 和 GPU 的协作：CPU（Central Processing Unit，中央处理器）
+
+对象的创建和销毁、对象属性的调整、布局计算、文本的计算和排版、图片的格式转换和解码、图像的绘制（Core Graphics）
+
+GPU（ ...
+        
+      </div>
+      <a class="more" href="/posts/42986/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/56329/">WKWebView 与 JavaScriptCore</a>
+      </h2>
+      <p class="article-date">2020年9月12日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、WKWebView1、WebKitWebKit 是 Safari 浏览器的内核，WebKit 由多个重要模块组成：
+
+WebKit Embedding API（WebKit 嵌入 API）WebKit 提供给浏览器 UI 调用的接口，例如 iOS 中 WebKit 框架提供的 WKWeb ...
+        
+      </div>
+      <a class="more" href="/posts/56329/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/61952/">NSNotification 实现原理</a>
+      </h2>
+      <p class="article-date">2020年9月5日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runloop" >
+    <span class="tag-code">runloop</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、NSNotification 的基本使用1、NSNotificationNSNotification 的定义如下：
+1234567891011121314@interface NSNotification : NSObject &lt;NSCopying, NSCoding&gt;//  ...
+        
+      </div>
+      <a class="more" href="/posts/61952/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/60692/">Autorelease 实现原理</a>
+      </h2>
+      <p class="article-date">2020年8月30日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#runloop" >
+    <span class="tag-code">runloop</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          1、@autoreleasepool{}在新建 iOS 项目的时候，会自动生成 main.m 文件：
+1234567891011#import &lt;UIKit/UIKit.h&gt;#import &quot;AppDelegate.h&quot;int main(int argc, c ...
+        
+      </div>
+      <a class="more" href="/posts/60692/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/15665/">引用计数实现原理</a>
+      </h2>
+      <p class="article-date">2020年8月15日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#isa" >
+    <span class="tag-code">isa</span>
+  </a>
+
+  <a href="/tags#对象" >
+    <span class="tag-code">对象</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、iOS 引用计数概述对象的引用方式分为强引用和弱引用，对象的强引用和弱引用信息保存在 SideTables 中，SideTables 是全局的哈希数组，里面存储了有限数量的 SideTable，多个对象会共用一个 SideTable，也就是说每个 SideTable 中存储了多个对象的引 ...
+        
+      </div>
+      <a class="more" href="/posts/15665/">阅读全文</a>
+    </article>
+  
+
+  
+    <div class="guide-pager">
+  
+    <a href="/"><span class="page-arrow">← </span>上一页</a>
+  
+  
+    <a href="/page/3/">下一页<span class="page-arrow"> →</span></a>
+  
+</div>
+  
+</main>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

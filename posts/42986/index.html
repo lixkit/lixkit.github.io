@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta name="description" content="一、图像渲染原理1、iOS 双缓冲机制图像的渲染离不开 CPU 和 GPU 的协作：CPU（Central Processing Unit，中央处理器）  对象的创建和销毁、对象属性的调整、布局计算、文本的计算和排版、图片的格式转换和解码、图像的绘制（Core Graphics）  GPU（Graphics Processing Unit，图形处理器）  纹理的渲染（CPU 计算好的数据不能直接展">
+<meta property="og:type" content="article">
+<meta property="og:title" content="UI 渲染原理与优化">
+<meta property="og:url" content="https://www.lixkit.com/posts/42986/index.html">
+<meta property="og:site_name" content="李峰峰博客">
+<meta property="og:description" content="一、图像渲染原理1、iOS 双缓冲机制图像的渲染离不开 CPU 和 GPU 的协作：CPU（Central Processing Unit，中央处理器）  对象的创建和销毁、对象属性的调整、布局计算、文本的计算和排版、图片的格式转换和解码、图像的绘制（Core Graphics）  GPU（Graphics Processing Unit，图形处理器）  纹理的渲染（CPU 计算好的数据不能直接展">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_195.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_89.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_90.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_91.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_92.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_93.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_94.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_196.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_197.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_198.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_98.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_99.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_100.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_101.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_102.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_103.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_104.png">
+<meta property="og:image" content="https://www.lixkit.com/images/lix_blog_199.png">
+<meta property="article:published_time" content="2021-02-12T17:10:00.000Z">
+<meta property="article:modified_time" content="2025-03-14T00:26:48.903Z">
+<meta property="article:author" content="李峰峰">
+<meta property="article:tag" content="优化">
+<meta property="article:tag" content="底层">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://www.lixkit.com/images/lix_blog_195.png">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      UI 渲染原理与优化 | 李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <div id="article-banner">
+  <h2>UI 渲染原理与优化</h2>
+  <p class="post-date">2021-02-12</p>
+  <div class="arrow-down">
+    <a href="javascript:;"></a>
+  </div>
+</div>
+<main class="app-body flex-box">
+  <!-- Article START -->
+  <article class="post-article">
+    <section class="markdown-content"><h2 id="一、图像渲染原理"><a href="#一、图像渲染原理" class="headerlink" title="一、图像渲染原理"></a>一、图像渲染原理</h2><h3 id="1、iOS-双缓冲机制"><a href="#1、iOS-双缓冲机制" class="headerlink" title="1、iOS 双缓冲机制"></a>1、iOS 双缓冲机制</h3><p>图像的渲染离不开 CPU 和 GPU 的协作：<br><strong>CPU（Central Processing Unit，中央处理器）</strong></p>
+<ul>
+<li>对象的创建和销毁、对象属性的调整、布局计算、文本的计算和排版、图片的格式转换和解码、图像的绘制（Core Graphics）</li>
+</ul>
+<p><strong>GPU（Graphics Processing Unit，图形处理器）</strong></p>
+<ul>
+<li>纹理的渲染（CPU 计算好的数据不能直接展示到屏幕，需要经过 GPU 的渲染）</li>
+</ul>
+<p>CPU 计算之后数据不能直接用于显示，CPU 将计算之后的图像信息（即：图元 primitives）传给 GPU ，由 GPU 负责后续的渲染，GPU 会将渲染结束之后像素信息（即：位图 bitmap），存在帧缓冲器（Framebuffer）中，视频控制器（Video Controller）会读取帧缓冲器中的信息，经过数模转换传递给显示器（Monitor），进行显示，流程如下：<br><img src="/images/lix_blog_195.png"><br>显示器的电子束会从屏幕的左上角开始逐行扫描，当电子枪换到新的一行，准备进行扫描时，显示器会发出一个水平同步信号 <code>HSync</code>，而当一帧画面绘制完成后，电子枪回复到原位，准备画下一帧前，显示器会发出一个垂直同步信号 <code>VSync</code>。扫描时，屏幕上的每个点的图像信息都从帧缓冲器中的位图进行读取，在屏幕上对应地显示。扫描的流程如下图所示：<br><img src="/images/lix_blog_89.png"><br>每次整个屏幕被扫描完一次后，就相当于呈现了一帧完整的图像。屏幕不断地刷新，不停呈现新的帧，就能呈现出连续的影像。</p>
+<p>屏幕刷新的频率，就是帧率（Frame per Second，FPS）。由于人眼的视觉暂留效应，当屏幕刷新频率足够高时（FPS 通常是 50 到 60 左右），就能让画面看起来是连续而流畅的。对于 iOS 而言，APP 应该尽量保证 60 FPS 才是最好的体验。</p>
+<p><strong>单缓冲器与屏幕撕裂</strong><br>在单缓冲器的情况下，很容易产生屏幕撕裂，CPU+GPU 的渲染流程是一个非常耗时的过程。如果在电子束开始扫描新的一帧时，位图还没有渲染好，那么这时候帧缓冲器中还是上一帧的内容，显示器的电子束会再次将上一帧内容扫描到屏幕上。扫描一半时，新一帧才被正常渲染完成并放入帧缓冲器中。 那么已扫描的部分就是上一帧的画面，而未扫描的部分则会显示新的一帧图像，于是造成了屏幕撕裂：<br><img src="/images/lix_blog_90.png"></p>
+<p><strong>垂直同步 Vsync + 双缓冲机制 Double Buffering</strong><br>解决屏幕撕裂、提高显示效率的一个策略就是使用垂直同步信号 Vsync 与双缓冲机制 Double Buffering。根据苹果的官方文档描述，iOS 设备会始终使用 <code>Vsync</code> + Double Buffering 的策略。</p>
+<p>垂直同步信号（vertical synchronisation，Vsync）相当于给帧缓冲器加锁：当电子束完成一帧的扫描，将要从头开始扫描时，就会发出一个垂直同步信号。只有当视频控制器接收到 <code>Vsync</code> 之后，才会将帧缓冲器中的位图更新为下一帧，这样就能保证每次显示的都是同一帧的画面，因而避免了屏幕撕裂。</p>
+<p>但是这种情况下，视频控制器在接受到 <code>Vsync</code> 之后，就要将下一帧的位图传入，这意味着整个 CPU+GPU 的渲染流程都要在一瞬间完成，这是明显不现实的。所以双缓冲机制会增加一个新的备用缓冲器（back buffer）。在电子束在扫描帧缓冲器中的内容时，CPU 和 GPU 同时渲染下一帧的内容，渲染结果会预先保存在 back buffer 中，当一帧扫描结束接收到 <code>Vsync</code> 信号的时候，视频控制器会将 back buffer 中的内容置换到 frame buffer 中，此时就能保证置换操作几乎在一瞬间完成（实际上是交换了内存地址），这样就通过充分利用 CPU 和 GPU 资源解决了屏幕撕裂的问题。<br><img src="/images/lix_blog_91.png"></p>
+<h3 id="2、Core-Animation"><a href="#2、Core-Animation" class="headerlink" title="2、Core Animation"></a>2、Core Animation</h3><p>Core Animation 职责并非像其名字一样只负责动画，而是同时兼顾 UI 渲染、构建和实现动画等重要职责，就像 Apple 文档所说：</p>
+<blockquote>
+<p>If you are writing iOS apps, you are using Core Animation whether you know it or not。</p>
+</blockquote>
+<p>也就是说无论我们开发过程中是否直接使用了 Core Animation，它都在底层深度参与了 APP 的构建。</p>
+<p>Core Animation 是 iOS 和 OSX 上的图形渲染和动画基础结构，用于为应用的视图和其他视觉元素设置动画。它把大量的绘图工作交给 GPU 去加速渲染，所以可以实现高帧率高流畅度的动画效果，而不会增加 CPU 负担和减慢应用程序的速度。</p>
+<p>Core Animation 并不是一个绘图系统，而是使用硬件去合成和处理视图内容的基础框架，而这个基础框架的核心就是 CALayer 对象，Core Animation 的职责就是尽可能快地组合屏幕上不同的 CALayer，并且被存储为树状层级结构。这个树也形成了 UIKit 以及在 iOS 应用程序当中你所能在屏幕上看见的一切的基础。<br><img src="/images/lix_blog_92.png"></p>
+<p>上面是来自 Apple 官方文档的一个架构图，上图还涉及到 Metal 和 Core Graphics：</p>
+<ul>
+<li><p>Metal<br>类似于 OpenGL ES 的图形处理框架，Apple 早在 2014 年就推出了 Metal，从 iOS 12 开始 OpenGL ES 被弃用，正式被 Metal 取代，其绘制工作主要使用 GPU。</p>
+</li>
+<li><p>Core Graphics<br>Core Graphics 是一个强大的二维图像绘制引擎，是 iOS 的核心图形库，常用的比如 CGRect 就定义在这个框架下，其绘制工作主要使用 CPU。</p>
+</li>
+</ul>
+<p><strong>Core Animation 渲染流水线</strong><br><img src="/images/lix_blog_93.png"></p>
+<p>上图即为 Core Animation 的渲染流水线，APP 进程本身是不负责渲染的，CATransaction 把一组 UI 上的修改，合并成一个事务，通过 commit 提交给 <code>RenderServer</code>，<code>RenderServer</code> 在一个单独的进程里进行渲染，调用渲染框架(Metal&#x2F;OpenGL ES)来生成 bitmap，放到帧缓冲区里，硬件根据时钟信号读取帧缓冲区内容，完成屏幕刷新。</p>
+<p>根据上图可以看到，一次完整渲染流程需要跨越 3 帧才能完成，我们 iOS 设备的刷帧率是 60 FPS（Frame per Second 帧&#x2F;秒），也就是 1 秒钟可以刷新 60 帧（次）。完成一帧刷新的用时是 16.67ms。因此垂直同步信号 VSync 就是每 16.67ms 发出一次。Core Animation 渲染流水线不停地进行，使每一帧都能展示对应的画面，我们就看到了流畅的画面。换句话说，这些阶段里任何一阶段因耗时太长无法正常在一帧内完成，都会引起卡顿的产生。</p>
+<p><strong>Core Animation 一次完整的渲染流水线中主要有 4 个阶段：</strong></p>
+<p><strong>第一阶段：准备图层和动画属性</strong><br>此阶段发生在应用内，也是开发者最直接接触的阶段，该阶段工作在 CPU 上，分为 <strong>Handle Events</strong>、<strong>Commit Transaction</strong> 两大部分：</p>
+<ul>
+<li><p>Handle Events<br>APP 先响应和处理点击、手势等用户交互事件，这一阶段如果涉及视图&#x2F;图层的改变，就会触发渲染流水线开始。</p>
+</li>
+<li><p>Commit Transaction<br><img src="/images/lix_blog_94.png"><br>Commit Transaction 包含<strong>布局</strong>、<strong>显示</strong>、<strong>准备</strong>、<strong>提交</strong>四个阶段，发生在应用程序进程内，并且是在 CPU 上工作。</p>
+<ul>
+<li><p><strong>Layout：布局</strong><br>  这个阶段主要处理视图的构建和布局，具体步骤包括：</p>
+<ul>
+<li>调用重载的 <code>layoutSubviews</code> 方法</li>
+<li>创建视图，并通过 <code>addSubview</code> 方法添加子视图</li>
+<li>计算视图布局，即所有的 Layout Constraint</li>
+</ul>
+<p>  由于这个阶段是在 CPU 中进行，通常是 CPU 限制或者 IO 限制，所以我们应该尽量高效轻量地操作，减少这部分的时间，比如减少非必要的视图创建、简化布局计算、减少视图层级等。</p>
+</li>
+<li><p><strong>Display：显示</strong><br>  这个阶段主要是交给 Core Graphics 进行视图的绘制，注意不是真正的显示，而是得到前文所说的图元 primitives 数据：</p>
+<ul>
+<li>根据上一阶段 Layout 的结果创建得到图元信息。</li>
+<li>如果重写了 <code>drawRect:</code> 方法，那么会调用重载的 <code>drawRect:</code> 方法，在 <code>drawRect:</code> 方法中手动绘制得到 bitmap 数据，从而自定义视图的绘制。</li>
+</ul>
+<p>  注意正常情况下 Display 阶段只会得到图元 primitives 信息，而位图 bitmap 是在 GPU 中根据图元信息绘制得到的。但是如果重写了 <code>drawRect:</code> 方法，这个方法会直接调用 Core Graphics 绘制方法得到 bitmap 数据，同时系统会额外申请一块内存，用于暂存绘制好的 bitmap，后续 bitmap 到了 GPU 那里经过一定处理之后会跟 GPU 渲染出的 bitmap 一块组合展示。<br>  由于重写了 <code>drawRect:</code> 方法，导致绘制过程从 GPU 转移到了 CPU，这就导致了一定的效率损失。与此同时，这个过程会额外使用 CPU 和内存，因此需要高效绘制，否则容易造成 CPU 卡顿或者内存爆炸。</p>
+</li>
+<li><p><strong>Prepare：准备</strong><br>  这是 Core Animation 准备发送动画数据到 Render Server 的阶段。这同时也是 Core Animation 将要执行一些额外事务的时间点，主要包括：</p>
+<ul>
+<li>图片解码；</li>
+<li>图片转换；</li>
+</ul>
+</li>
+<li><p><strong>Commit：提交</strong><br>  这一步主要是：在 Runloop 即将休眠（BeforeWaiting）或退出（Exit）时，将图层打包并发送到 Render Server。<br>  Render Server 是在单独的进程上工作的，APP 进程和 Render Server 进程之间通过 IPC 进行通信。<br>  注意 commit 操作是依赖图层树递归执行的，所以如果图层树过于复杂，commit 的开销就会很大。这也是我们希望减少视图层级，从而降低图层树复杂度的原因。</p>
+</li>
+</ul>
+</li>
+</ul>
+<p><strong>第二阶段：解码及绘制调用</strong><br>此阶段发生在 Render Server 内，工作在 CPU 上，分为两个阶段：</p>
+<ul>
+<li>Decode<br>使用 Core Animation 解码收到的图层树。</li>
+<li>Draw Calls<br>Core Animation 解码完成后，CPU 通过调用绘制命令（称为一次 Draw Call）来告诉 GPU 开始进行一个渲染过程的，Draw Call 命令会告诉 GPU 需要渲染的信息，包含图元信息。</li>
+</ul>
+<p><strong>第三阶段：渲染</strong><br>此阶段工作在 GPU 上，GPU 接收到 Draw Call 命令之后就会开始进行一次渲染流程。调用着色器，进行像素渲染，最终得到位图 bitmap，并存储到帧缓冲区中。</p>
+<p><strong>第四阶段：展示</strong><br>在 <code>VSync</code> 到达时，视频控制器读取帧缓冲区的数据，交给显示器显示。</p>
+<p>根据 Core Animation 渲染流水线可以知道，为了保证渲染流畅进行，我们在开发阶段需要注意：</p>
+<ul>
+<li>尽量减少非必要的视图创建、简化布局计算、减少视图层级。</li>
+<li>如非必要，不要重写 <code>drawRect:</code> 方法。如果重写了 <code>drawRect:</code> 方法，需要保证高效绘制，以减少 CPU 消耗。</li>
+</ul>
+<h3 id="3、UIView-CALayer"><a href="#3、UIView-CALayer" class="headerlink" title="3、UIView &amp; CALayer"></a>3、UIView &amp; CALayer</h3><h4 id="1-UIView-和-CALayer-的关系"><a href="#1-UIView-和-CALayer-的关系" class="headerlink" title="(1) UIView 和 CALayer 的关系"></a>(1) UIView 和 CALayer 的关系</h4><p>前面提到 Core Animation 的核心就是 <code>CALayer</code> 对象，是显示的基础。那么 <code>UIView</code> 和 <code>CALayer</code> 之间有什么关系呢？</p>
+<p><code>UIView</code> 和 <code>CALayer</code> 概念上很相似，同样也是一些被层级关系树管理的矩形块，同样也可以包含一些内容，管理子图层的位置。两者不同的是：<code>UIView</code> 可以处理触摸事件；<code>CALayer</code> 不处理用户的交互，不参与响应事件传递。</p>
+<p>对于 <code>UIView</code> 视图来说真正的负责内容展示的其实是它内部的 <code>CALayer</code>，<code>UIView</code> 只是将自身的展示任务交给了内部的 <code>CALayer</code> 完成，而它还肩负着一些其它的任务，比如说用户的交互响应，提供一些 Core Animation 底层方法的高级接口等，这也是使用了职责分离的设计思想。</p>
+<p><code>UIView</code> 定义如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">UIView</span> : <span class="title">UIResponder</span> &lt;<span class="title">NSCoding</span>, <span class="title">UIAppearance</span>, <span class="title">UIAppearanceContainer</span>, <span class="title">UIDynamicItem</span>, <span class="title">UITraitEnvironment</span>, <span class="title">UICoordinateSpace</span>, <span class="title">UIFocusItem</span>, <span class="title">UIFocusItemContainer</span>, <span class="title">CALayerDelegate</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@property</span>(<span class="keyword">nonatomic</span>,<span class="keyword">readonly</span>,<span class="keyword">strong</span>) <span class="built_in">CALayer</span>  *layer; <span class="comment">// returns view&#x27;s layer. Will always return a non-nil value. view is layer&#x27;s delegate</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p><code>CALayer</code> 定义如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">CALayer</span> : <span class="title">NSObject</span> &lt;<span class="title">NSSecureCoding</span>, <span class="title">CAMediaTiming</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// …</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* An object providing the contents of the layer, typically a CGImageRef,</span></span><br><span class="line"><span class="comment"> * but may be something else. (For example, NSImage objects are</span></span><br><span class="line"><span class="comment"> * supported on Mac OS X 10.6 and later.) Default value is nil.</span></span><br><span class="line"><span class="comment"> * Animatable. */</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@property</span>(<span class="keyword">nullable</span>, <span class="keyword">strong</span>) <span class="type">id</span> contents;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>可以看出：<code>CALayer</code> 是继承于 <code>NSObject</code>；<code>UIView</code> 是继承于 <code>UIResponder</code>，每个 <code>UIView</code> 都拥有一个非空的 <code>CALayer</code>。<code>CALayer</code> 有一个可选的 <code>delegate</code> 属性，实现了 <code>CALayerDelegate</code> 协议。<code>UIView</code> 作为 <code>CALayer</code> 的代理实现了 <code>CALayerDelegae</code> 协议。<br><img src="/images/lix_blog_196.png"><br><code>CALayer</code> 之所以可以呈现可视化内容，是因为 <code>CALayer</code> 保存了 Metal&#x2F;OpenGL 渲染需要的顶点数据和纹理数据。其中顶点数据是必须要有的，而纹理数据不是必需的，图形渲染流水线支持从顶点开始进行绘制（GPU 会处理顶点数据并生成纹理），也支持直接使用纹理进行渲染。</p>
+<ul>
+<li><p>顶点数据<br>通过我们给 <code>CALayer</code> 设置各种属性比如 <code>frame</code>、<code>backgroundColor</code> 来获取。即 Metal&#x2F;OpenGL 获取到位置和大小信息，当然还包括一个颜色来进行一个图形的渲染。</p>
+</li>
+<li><p>纹理数据<br><code>CALayer</code> 有个属性 <code>contents</code>，<code>contents</code> 指向一块缓存区，称为 backing store，可以存放位图(Bitmap)，iOS 中将该缓存区保存的 Bitmap 称为寄宿图。这个也就是 Metal&#x2F;OpenGL 渲染可以使用的纹理数据了。</p>
+</li>
+</ul>
+<p><strong>设置寄宿图有两种方式：使用图片（contents image）和手动绘制（custom drawing）。</strong></p>
+<p><strong>使用图片（contents image）</strong><br>Contents Image 是指通过 <code>CALayer</code> 的 <code>contents</code> 属性来配置图片。关于 contents 属性，根据代码注释也可以知道 <code>contents</code> 默认是 <code>nil</code>，可以用来存储 <code>CALayer</code> 要显示的内容，在 iOS 中可以存储 <code>CGImageRef</code>，即 <code>CGImage</code>，在 macOS 下可以存储 <code>CGImage</code> 或 <code>NSImage</code>。</p>
+<p>Apple 对 <code>CGImageRef</code> 的定义是：</p>
+<blockquote>
+<p>A bitmap image or image mask.</p>
+</blockquote>
+<p>也就是说 <code>CALayer.contents</code> 就可以存储 bitmap，这就和前面 Core Animation 渲染流水线关联起来了。</p>
+<p>例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">UIImage</span> *myImage = [<span class="built_in">UIImage</span> imageNamed:<span class="string">@&quot;myImage&quot;</span>];</span><br><span class="line">myView.layer.contents = (__bridge <span class="type">id</span>)myImage.CGImage;</span><br></pre></td></tr></table></figure>
+
+<p><strong>手动绘制（custom drawing）</strong><br>Custom Drawing 是指使用 Core Graphics 直接绘制寄宿图。实际开发中，一般通过继承 <code>UIView</code> 并实现 <code>drawRect:</code> 方法来自定义绘制。</p>
+<p>例如，绘制一个圆形：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)drawRect:(<span class="built_in">CGRect</span>)rect &#123;</span><br><span class="line">    <span class="comment">// 获取画布（获取上下文 context）</span></span><br><span class="line">    <span class="built_in">CGContextRef</span> context = <span class="built_in">UIGraphicsGetCurrentContext</span>();</span><br><span class="line">    <span class="comment">// 画笔颜色</span></span><br><span class="line">    <span class="built_in">CGContextSetStrokeColorWithColor</span>(context, [<span class="built_in">UIColor</span> redColor].CGColor);</span><br><span class="line">    <span class="comment">// 画笔宽度</span></span><br><span class="line">    <span class="built_in">CGFloat</span> lineWidth = <span class="number">5</span>;</span><br><span class="line">    <span class="built_in">CGContextSetLineWidth</span>(context, lineWidth);</span><br><span class="line">    <span class="comment">// 圆点坐标</span></span><br><span class="line">    <span class="built_in">CGFloat</span> centerX = <span class="built_in">CGRectGetWidth</span>(rect)/<span class="number">2.0</span>;</span><br><span class="line">    <span class="built_in">CGFloat</span> centerY = <span class="built_in">CGRectGetHeight</span>(rect)/<span class="number">2.0</span>;</span><br><span class="line">    <span class="built_in">CGFloat</span> cusRadius  = <span class="keyword">self</span>.frame.size.width/<span class="number">2.0</span> - lineWidth/<span class="number">2.0</span>;</span><br><span class="line">    <span class="type">double</span>  PI = <span class="number">3.14</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 绘制路径：初始角度、结束角度</span></span><br><span class="line">    <span class="built_in">CGContextAddArc</span>(context, centerX, centerY, cusRadius, <span class="number">1.5</span>*PI, <span class="number">1.5</span>*PI + <span class="number">2</span>*PI, <span class="literal">NO</span>);</span><br><span class="line">    <span class="built_in">CGContextDrawPath</span>(context, kCGPathStroke);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>虽然 <code>drawRect:</code> 是一个 <code>UIView</code> 的方法，但实际上都是底层的 <code>CALayer</code> 完成了重绘工作并保存了产生的图片，在 <code>drawRect:</code> 方法中加断点打印的调用栈如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ...</span></span><br><span class="line">frame #<span class="number">0</span>: <span class="number">0x000000010e463f50</span> LayerDemo`-[TestView drawRect:](<span class="keyword">self</span>=<span class="number">0x00007fad307042c0</span>, _cmd=<span class="string">&quot;drawRect:&quot;</span>, rect=(origin = (x = <span class="number">0</span>, y = <span class="number">0</span>), size = (width = <span class="number">200</span>, height = <span class="number">200</span>))) at TestView.m:<span class="number">31</span>:<span class="number">5</span></span><br><span class="line">frame #<span class="number">1</span>: <span class="number">0x00007fff24bf756d</span> <span class="built_in">UIKitCore</span>`-[<span class="built_in">UIView</span>(<span class="built_in">CALayerDelegate</span>) drawLayer:inContext:] + <span class="number">625</span></span><br><span class="line">frame #<span class="number">2</span>: <span class="number">0x00007fff27b1afa9</span> QuartzCore`-[<span class="built_in">CALayer</span> drawInContext:] + <span class="number">288</span></span><br><span class="line">frame #<span class="number">3</span>: <span class="number">0x00007fff279d6001</span> QuartzCore`<span class="built_in">CABackingStoreUpdate_</span> + <span class="number">190</span></span><br><span class="line">frame #<span class="number">4</span>: <span class="number">0x00007fff27b24715</span> QuartzCore`invocation function <span class="keyword">for</span> block <span class="keyword">in</span> CA::Layer::display_() + <span class="number">53</span></span><br><span class="line">frame #<span class="number">5</span>: <span class="number">0x00007fff27b1a7e6</span> QuartzCore`-[<span class="built_in">CALayer</span> _display] + <span class="number">2111</span></span><br><span class="line">frame #<span class="number">6</span>: <span class="number">0x00007fff27b2e0cd</span> QuartzCore`CA::Layer::layout_and_display_if_needed(CA::Transaction*) + <span class="number">463</span></span><br><span class="line">frame #<span class="number">7</span>: <span class="number">0x00007fff27a6d44c</span> QuartzCore`CA::Context::commit_transaction(CA::Transaction*, <span class="type">double</span>, <span class="type">double</span>*) + <span class="number">496</span></span><br><span class="line">frame #<span class="number">8</span>: <span class="number">0x00007fff27aa4233</span> QuartzCore`CA::Transaction::commit() + <span class="number">783</span></span><br><span class="line"><span class="comment">// ...</span></span><br></pre></td></tr></table></figure>
+<p><strong>主要逻辑如下：</strong></p>
+<ul>
+<li><p><code>UIView</code> 作为 <code>CALayer</code> 的代理实现了 <code>CALayerDelegae</code> 协议，<code>CALayerDelegae</code> 中声明了 <code>displayLayer:</code>、<code>drawLayer:inContext:</code> 等方法。</p>
+</li>
+<li><p>当我们重写了 <code>drawRect:</code> 方法时，<code>CALayer</code> 会调用 <code>display</code> 方法请求其代理（即 <code>UIView</code>）给予一个寄宿图来显示。</p>
+</li>
+<li><p><code>CALayer</code> 首先会尝试调用 <code>displayLayer:</code> 方法，此时代理可以直接设置 <code>contents</code> 属性。<br><code>- (void)displayLayer:(CALayer *)layer;</code></p>
+</li>
+<li><p>如果 <code>CALayer</code> 的代理没有实现 <code>displayLayer:</code> 方法，<code>CALayer</code> 则会尝试调用 <code>drawLayer:inContext:</code> 方法。在调用该方法前，<code>CALayer</code> 会创建一个空的寄宿图和一个 Core Graphics 的绘制上下文 <code>CGContextRef</code>，为绘制寄宿图做准备，作为 <code>ctx</code> 参数传入。<br><code>- (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)ctx;</code></p>
+</li>
+<li><p><code>drawLayer:inContext:</code> 内部会再去调用我们重写的 <code>drawRect:</code> 方法进行绘制。</p>
+</li>
+<li><p>最后，由 Core Graphics 绘制生成的寄宿图会通过 context（<code>CGContextRef</code>） 存入 backing store，后续会提交给 GPU 进行对应的渲染显示流程。</p>
+</li>
+</ul>
+<p>根据上述逻辑可知，<font color=#ff0000>一旦我们重写了 <code>drawRect:</code> 方法，即使方法内部没有任何绘制逻辑，系统也会默认生成一张空的寄宿图，会对 CPU 和内存产生消耗。这也就是前面 Core Animation 渲染流水线内容里提到“如非必要，不要重写 <code>drawRect:</code> 方法”的原因。</font></p>
+<p>这里有个细节需要注意，<code>drawRect:</code> 方法中获取并使用了上下文 <code>context</code>（<code>CGContextRef</code>），实际上也只有在 <code>drawRect:</code> 方法中才能使用这个上下文 <code>context</code>。</p>
+<p>因为 <code>drawRect:</code> 方法在 <code>drawLayer:inContext:</code> 里被调用, 并且被调用前有个 <code>UIGraphicsPushContext(context)</code> 方法将视图图层对应上下文压入栈顶，然后 <code>drawRect:</code> 执行完后，将视图图层对应上下文执行出栈操作。系统会维护一个 <code>CGContextRef</code> 的栈，而 <code>UIGraphicsGetCurrentContext()</code> 会取栈顶的 <code>CGContextRef</code>, 当前视图图层的上下文的入栈和出栈操作恰好将 <code>drawRect:</code> 的执行包裹在其中，所以说只在 <code>drawRect:</code> 方法里才能获取当前图层的上下文。</p>
+<p>相关逻辑伪代码如下：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)drawLayer:(<span class="built_in">CALayer</span>*)layer inContext:(<span class="built_in">CGContextRef</span>)context &#123;</span><br><span class="line">    <span class="built_in">UIGraphicsPushContext</span>(context);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">CGRect</span> bounds;</span><br><span class="line">    bounds = <span class="built_in">CGContextGetClipBoundingBox</span>(context);</span><br><span class="line">    [<span class="keyword">self</span> drawRect:bounds];</span><br><span class="line"></span><br><span class="line">    <span class="built_in">UIGraphicsPopContext</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2-UI-更新与-RunLoop"><a href="#2-UI-更新与-RunLoop" class="headerlink" title="(2) UI 更新与 RunLoop"></a>(2) UI 更新与 RunLoop</h4><p>操作 UI 时，比如改变了 <code>Frame</code>、更新了 <code>UIView/CALayer</code> 的层次时，或者手动调用了 <code>UIView/CALayer</code> 的 <code>setNeedsLayout/setNeedsDisplay</code> 方法后，这个 <code>UIView/CALayer</code> 就被标记为待处理，并被提交到一个全局的容器去，这个容器就保存了这些 <code>CATransaction</code> 事务。</p>
+<p><code>CATransaction</code> 的作用就是捕获 <code>CALayer</code> 的变化，然后提交，就像下面这样：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[<span class="built_in">CATransaction</span> begin];</span><br><span class="line">_testLayer.backgroundColor = [<span class="built_in">UIColor</span> blueColor].CGColor;</span><br><span class="line">[<span class="built_in">CATransaction</span> commit];</span><br></pre></td></tr></table></figure>
+<p>苹果注册了一个 RunLoop Observer 监听 <code>BeforeWaiting</code>(即将进入休眠) 和 Exit (退出) 事件，回调去执行一个很长的函数：<br><code>_ZN2CA11Transaction17observer_callbackEP19__CFRunLoopObservermPv()</code><br>这个函数里会遍历所有待处理的 <code>UIView/CAlayer</code> 以执行实际的绘制和调整，并更新 UI 界面。</p>
+<p>我们看到下面的代码中就是获取到这个全局的 <code>Transaction</code> 容器，然后执行 Transaction commit，判断 <code>layout_if_needed()</code> 和 <code>display_if_needed()</code>，然后执行视图的创建、布局计算、图片解码、文本绘制等。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">_ZN2CA11Transaction17observer_callbackEP19__CFRunLoopObservermPv()</span><br><span class="line">    QuartzCore:CA::Transaction::observer_callback:</span><br><span class="line">        CA::Transaction::commit();</span><br><span class="line">            CA::Context::commit_transaction();</span><br><span class="line">                CA::Layer::layout_and_display_if_needed();</span><br><span class="line">                    CA::Layer::layout_if_needed();</span><br><span class="line">                        [<span class="built_in">CALayer</span> layoutSublayers];</span><br><span class="line">                            [<span class="built_in">UIView</span> layoutSubviews];</span><br><span class="line">                    CA::Layer::display_if_needed();</span><br><span class="line">                        [<span class="built_in">CALayer</span> display];</span><br><span class="line">                            [<span class="built_in">UIView</span> drawRect];</span><br></pre></td></tr></table></figure>
+<p>如果想要立刻根据刷新标记刷新视图，可以调用 <code>layoutIfNeeded</code> 方法，该方法会触发立刻刷新。如果 <code>view</code> 被标记了需要刷新，那么调用 <code>layoutIfNeeded</code> 方法之后，<code>subView</code> 的 <code>layoutSubviews</code> 方法会被调用。</p>
+<h4 id="3-异步绘制"><a href="#3-异步绘制" class="headerlink" title="(3) 异步绘制"></a>(3) 异步绘制</h4><p>当我们调用了 <code>setNeedsDisplay</code> 方法后，RunLoop 即将进入休眠和结束的时候会调用 <code>[CALayer display]</code>，如果 <code>CALayer</code> 的代理（即 <code>UIView</code>）实现了 <code>dispalyLayer:</code> 方法，那么 <code>dispalyLayer:</code> 会被调用。</p>
+<p>CoreGraphic 的绘制方法是线程安全的，我们可以在子线程中去做异步绘制的工作，我们虽然不能在非主线程将内容绘制到 <code>layer</code> 的 <code>context</code> 上，但是我们可以将需要绘制的内容绘制在一个自己创建的 <code>context</code> 上，绘制完成后切换到到主线程, 为 <code>layer.contents</code> 赋值。例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="type">void</span>)display &#123;</span><br><span class="line">    <span class="built_in">dispatch_async</span>(backgroundQueue, ^&#123;</span><br><span class="line">        <span class="built_in">CGContextRef</span> ctx = <span class="built_in">CGBitmapContextCreate</span>(...);</span><br><span class="line">        <span class="comment">// draw in context...</span></span><br><span class="line">        <span class="built_in">CGImageRef</span> img = <span class="built_in">CGBitmapContextCreateImage</span>(ctx);</span><br><span class="line">        <span class="built_in">CFRelease</span>(ctx);</span><br><span class="line">        <span class="built_in">dispatch_async</span>(mainQueue, ^&#123;</span><br><span class="line">            layer.contents = img;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当然这个是重写的 <code>CALayer</code> 的 <code>display</code> 方法实现的。我们也可以重写 <code>UIView</code> 的 <code>dispalyLayer:</code> 方法，在 <code>dispalyLayer:</code> 方法中按照相同方式进行异步绘制。</p>
+<h2 id="二、离屏渲染"><a href="#二、离屏渲染" class="headerlink" title="二、离屏渲染"></a>二、离屏渲染</h2><p>根据前文，简化来看，通常的渲染流程是这样的：<br><img src="/images/lix_blog_197.png"><br>App 通过 CPU 和 GPU 的合作，不停地将内容渲染完成放入 Framebuffer 帧缓冲器中，而显示屏幕不断地从 Framebuffer 中获取内容，显示实时的内容。</p>
+<p>而离屏渲染的流程是这样的：<br><img src="/images/lix_blog_198.png"><br>与普通情况下 GPU 直接将渲染好的内容放入 Framebuffer 中不同，需要先额外创建离屏渲染缓冲区 Offscreen Buffer，将提前渲染好的内容放入其中，等到合适的时机再将 Offscreen Buffer 中的内容进一步叠加、渲染，完成后将结果切换到 Framebuffer 中。</p>
+<p><strong>为什么会有离屏渲染呢？</strong><br>使用离屏渲染主要是因为下面这两种原因：</p>
+<ul>
+<li>(1) 一些特殊效果需要使用额外的 Offscreen Buffer 来保存渲染的中间状态，所以不得不使用离屏渲染。</li>
+<li>(2) 处于效率目的，可以将内容提前渲染保存在 Offscreen Buffer 中，达到复用的目的。</li>
+</ul>
+<p>对于第一种情况，也就是不得不使用离屏渲染的情况，一般都是系统自动触发的，比如阴影、圆角等等。</p>
+<p><strong>为什么需要使用额外的 Offscreen Buffer 来保存渲染的中间状态？</strong>通过前面的 Core Animation 渲染流水线可以知道，主要渲染操作是由 Render Server 模块通过调用显卡驱动所提供的 Metal&#x2F;OpenGL 接口来执行的，通常对于每一层 layer，Render Server 会遵循“画家算法”，按次序输出到 frame buffer，后一层覆盖前一层，就能得到最终的显示结果：<br><img src="/images/lix_blog_98.png"><br>作为“画家”的 GPU 虽然可以一层一层往画布上进行输出，但是无法在某一层渲染完成之后，再回过头来擦除&#x2F;改变其中的某个部分，因为目前存在的 <code>layer</code> 已经是若干层 <code>layer</code> 覆盖合并后的 <code>layer</code> 了。所以，对于这种复杂的场景，就不得不另开一块内存，也就是创建一个缓冲区（Offscreen Buffer），将已渲染好的 <code>layer</code> 先临时保存到这个缓冲区中，以便于可以多次取出做出一些特定处理。</p>
+<p>例如，使用了 <code>mask</code> 蒙版：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">UIImageView</span> *mImageView = [<span class="built_in">UIImageView</span> new];</span><br><span class="line"><span class="built_in">CALayer</span> *maskLayer = [<span class="built_in">CALayer</span> layer];</span><br><span class="line"></span><br><span class="line"><span class="comment">// ........</span></span><br><span class="line"></span><br><span class="line">mImageView.layer.mask = maskLayer;</span><br></pre></td></tr></table></figure>
+<p>由于最终的内容是由两层渲染结果叠加，所以必须要利用额外的内存空间对中间的渲染结果进行保存，因此系统会默认触发离屏渲染。<br><img src="/images/lix_blog_99.png"></p>
+<p>再例如，使用了 iOS 8+ 提供的模糊效果 <code>UIBlurEffectView</code>：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">UIImageView</span> *mImageView = [[<span class="built_in">UIImageView</span> alloc] init];</span><br><span class="line"><span class="built_in">UIBlurEffect</span> *blur = [<span class="built_in">UIBlurEffect</span> effectWithStyle:<span class="number">0</span>];</span><br><span class="line"><span class="built_in">UIVisualEffectView</span> *blurView = [[<span class="built_in">UIVisualEffectView</span> alloc] initWithEffect:blur];</span><br><span class="line"></span><br><span class="line"><span class="comment">// mImageView.image = ...</span></span><br><span class="line"><span class="comment">// blurView.frame = ...;</span></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line">[mImageView addSubview:blurView];</span><br></pre></td></tr></table></figure>
+<p>整个模糊过程分为多步：<strong>Pass 1</strong> 先渲染需要模糊的内容本身，<strong>Pass 2</strong> 对内容进行缩放，<strong>Pass 3 4</strong> 分别对上一步内容进行横纵方向的模糊操作，最后一步用模糊后的结果叠加合成，最终实现完整的模糊特效。<br><img src="/images/lix_blog_100.png"></p>
+<p>而第二种情况，为了复用提高效率而使用离屏渲染一般是主动的行为，是通过 <code>CALayer</code> 的 <code>shouldRasterize</code> 光栅化操作实现的。</p>
+<p>开启光栅化后，会触发离屏渲染，Render Server 会强制将 CALayer 的渲染位图结果 bitmap 保存下来，这样下次再需要渲染时就可以直接复用，从而提高效率。</p>
+<p>而保存的 bitmap 包含 <code>layer</code> 的 <code>subLayer</code>、圆角、阴影、组透明度 group opacity 等，所以如果 <code>layer</code> 的构成包含上述几种元素，结构复杂且需要反复利用，那么就可以考虑打开光栅化，以改善性能。</p>
+<p>圆角、阴影、组透明度等会由系统自动触发离屏渲染，那么打开光栅化可以节约第二次及以后的渲染时间。而多层 <code>subLayer</code> 的情况由于不会自动触发离屏渲染，所以相比之下会多花费第一次离屏渲染的时间，但是可以节约后续的重复渲染的开销。</p>
+<p>例如，<code>UITableView</code> 的 <code>cell</code> 中，如果使用了阴影效果，那么会触发离屏渲染：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ...</span></span><br><span class="line">cell.textLabel.backgroundColor = [<span class="built_in">UIColor</span> clearColor];</span><br><span class="line">cell.textLabel.layer.shadowOffset = <span class="built_in">CGSizeMake</span>(<span class="number">0</span>, <span class="number">2</span>);</span><br><span class="line">cell.textLabel.layer.shadowOpacity = <span class="number">0.5</span>;”</span><br></pre></td></tr></table></figure>
+<p>我们可以使用 <code>shouldRasterize</code> 来缓存图层内容。这将会让图层离屏渲染一次之后把结果保存起来，大大减少了 GPU 的负担：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">- (<span class="built_in">UITableViewCell</span> *)tableView:(<span class="built_in">UITableView</span> *)tableView cellForRowAtIndexPath:(<span class="built_in">NSIndexPath</span> *)indexPath</span><br><span class="line"> &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    cell.layer.shouldRasterize = <span class="literal">YES</span>;</span><br><span class="line">    <span class="keyword">return</span> cell;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>不过使用光栅化的时候需要注意以下几点：</p>
+<ul>
+<li>如果 <code>layer</code> 不能被复用，则没有必要打开光栅化</li>
+<li>如果 <code>layer</code> 不是静态，需要被频繁修改，比如处于动画之中，那么开启离屏渲染反而影响效率</li>
+<li>离屏渲染缓存内容有时间限制，缓存内容 100ms 内如果没有被使用，那么就会被丢弃，无法进行复用</li>
+<li>离屏渲染缓存空间有限，超过 2.5 倍屏幕像素大小的话也会失效，无法复用。</li>
+</ul>
+<p><strong>离屏渲染的代价是很高的，主要体现在两个方面：</strong></p>
+<ul>
+<li><p><strong>创建新缓冲区(Offscreen Buffer)</strong><br>要想进行离屏渲染，首先要创建一个新的缓冲区，缓冲区需求占有一定的内存空间，大量的离屏渲染可能造成内存的过大压力。与此同时，Offscreen Buffer 的总大小也有限，不能超过屏幕总像素的 2.5 倍。</p>
+</li>
+<li><p><strong>上下文切换</strong><br>离屏渲染的整个过程，需要多次切换上下文环境：先是从当前屏幕（On-Screen）切换到离屏（Off-Screen），等到离屏渲染结束以后，将离屏缓冲区的渲染结果显示到屏幕上有需要将上下文环境从离屏切换到当前屏幕。而上下文环境的切换是要付出很大代价的。</p>
+</li>
+</ul>
+<p><strong>离屏渲染的开销非常大，一旦需要离屏渲染的内容过多，很容易造成掉帧的问题。所以大部分情况下，我们都应该尽量避免离屏渲染。</strong></p>
+<p>除了前面提到的几个触发离屏渲染的案例，还有很多情况也会触发离屏渲染。<br>总结一下，<strong>会触发离屏渲染的情况如下：</strong></p>
+<ul>
+<li>使用了 <code>mask</code> 的 <code>layer</code> (<code>layer.mask</code>)</li>
+<li><code>layer</code> 切圆角 (<code>layer.masksToBounds</code> &#x2F; <code>layer.masksToBounds</code>)，单纯的 <code>cornerRadius</code> + <code>masksToBounds</code> 不会触发离屏渲染，以下情况时才会触发离屏渲染：<ul>
+<li><code>layer</code> 设置了圆角裁剪，且有子 <code>layer</code>，或者有 <code>content</code>，会触发离屏渲染。</li>
+<li><code>UIImageView</code> 设置了圆角裁剪，同时设置了 <code>backgroundColor</code> 和 <code>image</code>（属于两个图层），会触发离屏渲染。</li>
+<li><code>UIButton</code> 设置了圆角裁剪，且设置了 <code>backgroundImage</code> 或者 <code>image+backgroundColor</code>，会触发离屏渲染。</li>
+</ul>
+</li>
+<li>有子 <code>layer</code> 或者背景图的 <code>layer</code> 设置了组透明度为 YES（默认就是 YES），并且设置了透明度不为 1 (<code>layer.allowsGroupOpacity</code>&#x2F;<code>layer.opacity</code>)</li>
+<li>添加了投影的 <code>layer</code> (<code>layer.shadow*</code>)</li>
+<li>采用了光栅化的 <code>layer</code> (<code>layer.shouldRasterize</code>)</li>
+<li>绘制了文字的 <code>layer</code> (<code>UILabel</code>, <code>CATextLayer</code>, <code>Core Text</code> 等)</li>
+</ul>
+<p><strong>特殊的“离屏渲染”：CPU渲染</strong><br>在前面渲染流程中提到如果我们重写了 drawRect: 方法，就涉及到了 CPU 渲染。整个渲染过程由 CPU 在 App 内同步地完成，渲染得到的 bitmap(位图)最后再交由 GPU 用于显示。</p>
+<p>Designing for iOS: Graphics &amp; Performance 这篇文章也提到了使用 Core Graphics API 会触发离屏渲染。 苹果 iOS 4.1-8 时期的 UIKit 组成员 Andy Matuschak 也曾对这个说法进行解释：「Core Graphics 的绘制 API 的确会触发离屏渲染，但不是那种 GPU 的离屏渲染。使用 Core Graphics 绘制 API 是在 CPU 上执行，触发的是 CPU 版本的离屏渲染。」</p>
+<p><strong>优化建议：</strong><br>（1）对于圆角，可使用贝塞尔曲线 <code>UIBezierPath</code> 和 <code>CoreGraphics</code> 的替代方式画圆角避免离屏渲染。例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">UIImageView</span> *imageView = [[<span class="built_in">UIImageView</span> alloc]initWithFrame:<span class="built_in">CGRectMake</span>(<span class="number">100</span>, <span class="number">100</span>, <span class="number">100</span>, <span class="number">100</span>)]; </span><br><span class="line">imageView.image = [<span class="built_in">UIImage</span> imageNamed:<span class="string">@&quot;myImg&quot;</span>]; </span><br><span class="line"><span class="comment">// 开始对 imageView 进行画图 </span></span><br><span class="line"><span class="built_in">UIGraphicsBeginImageContextWithOptions</span>(imageView.bounds.size, <span class="literal">NO</span>, <span class="number">1.0</span>); </span><br><span class="line"><span class="comment">// 使用贝塞尔曲线画出一个圆形图 </span></span><br><span class="line">[[<span class="built_in">UIBezierPath</span> bezierPathWithRoundedRect:imageView.bounds cornerRadius:imageView.frame.size.width] addClip];</span><br><span class="line">[imageView drawRect:imageView.bounds];</span><br><span class="line">imageView.image = <span class="built_in">UIGraphicsGetImageFromCurrentImageContext</span>(); </span><br><span class="line"><span class="comment">// 结束画图 </span></span><br><span class="line"><span class="built_in">UIGraphicsEndImageContext</span>();</span><br><span class="line">[<span class="keyword">self</span>.view addSubview:imageView];</span><br></pre></td></tr></table></figure>
+
+<p>（2）对于 <code>layer</code> 透明度不为 1 的情况，可以设置 <code>allowsGroupOpacity</code> 为 NO 避免离屏渲染。iOS 7+ 系统 <code>allowsGroupOpacity</code> 默认为 YES，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">view.layer.allowsGroupOpacity = <span class="literal">NO</span></span><br><span class="line">view.layer.opacity = <span class="number">0.9</span></span><br></pre></td></tr></table></figure>
+
+<p>备注：<code>allowsGroupOpacity</code>  作用<br>红色的是父 View，蓝色是子 View，效果如下：<br><img src="/images/lix_blog_101.png" style="width:50%;"><br>子 View 不设置透明度，对父 View 设置半透明：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">parentView.layer.opacity = <span class="number">0.5</span>;</span><br></pre></td></tr></table></figure>
+
+<p>allowsGroupOpacity 为 YES（默认） 效果：<br><img src="/images/lix_blog_102.png" style="width:50%;"></p>
+<p>allowsGroupOpacity 为 NO 效果：<br><img src="/images/lix_blog_103.png" style="width:50%;"></p>
+<p>可以看到，如果 <code>allowsGroupOpacity</code> 为 YES，这是对图层整体设置透明度，相当于先合并图层，再设置透明度。如果 <code>allowsGroupOpacity</code> 为 NO，则是分别对图层设置透明度，于是就出现了子 <code>View</code> 半透明后能看到后面的父 View 的效果。</p>
+<p>（3）对于 <code>layer</code> 设置阴影情况，可以通过设置 <code>shadowPath</code> 的替代方式设置阴影避免离屏渲染。例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. 设置 shadow ，会产生离屏渲染。</span></span><br><span class="line"><span class="keyword">self</span>.layer.shadowColor = <span class="built_in">UIColor</span>.black.cgColor</span><br><span class="line"><span class="keyword">self</span>.layer.shadowOpacity = <span class="number">0.3</span></span><br><span class="line"><span class="keyword">self</span>.layer.shadowRadius = <span class="number">3</span></span><br><span class="line"><span class="keyword">self</span>.layer.shadowOffset = <span class="built_in">CGSize</span>.zero</span><br><span class="line"></span><br><span class="line"><span class="comment">// 2.设置 shadowPath ，告诉 Core Animation 投影路径，则不会出现离屏渲染。</span></span><br><span class="line"><span class="keyword">self</span>.layer.shadowPath = <span class="built_in">UIBezierPath</span>(roundedRect: <span class="keyword">self</span>.bounds, byRoundingCorners: .allCorners</span><br><span class="line">, cornerRadii: <span class="built_in">CGSize</span>(width: <span class="number">30</span>, height: <span class="number">30</span>)).cgPath</span><br></pre></td></tr></table></figure>
+
+<p><strong>检测离屏渲染</strong><br>启动模拟器并打开如下选项，页面黄色区域部门表示发生了离屏渲染：<br><img src="/images/lix_blog_104.png"></p>
+<h2 id="三、卡顿"><a href="#三、卡顿" class="headerlink" title="三、卡顿"></a>三、卡顿</h2><h3 id="1、卡顿原因"><a href="#1、卡顿原因" class="headerlink" title="1、卡顿原因"></a>1、卡顿原因</h3><p>前面图像渲染原理部分提到 iOS 使用“垂直同步 <code>Vsync</code> + 双缓冲机制 Double Buffering”机制避免了屏幕撕裂问题。但是，这种方式也引起了另个问题：掉帧</p>
+<p>在 <code>VSync</code> 信号到来后，系统图形服务会通过 <code>CADisplayLink</code> 等机制通知 App，App 主线程开始在 CPU 中计算显示内容，比如视图的创建、布局计算、图片解码、文本绘制等。随后 CPU 会将计算好的内容提交到 GPU 去，由 GPU 进行变换、合成、渲染。随后 GPU 会把渲染结果提交到帧缓冲区去，等待下一次 <code>VSync</code> 信号到来时显示到屏幕上。如果在接收到 Vsync 之时 CPU 和 GPU 还没有渲染好新的位图，视频控制器就不会去替换 frame buffer 中的位图。这时屏幕就会重新扫描呈现出上一帧一模一样的画面。相当于两个周期显示了同样的画面，引起了掉帧的现象，这就是界面卡顿的原因。<br><img src="/images/lix_blog_199.png"><br>从上面的图中可以看到，CPU 和 GPU 不论哪个阻碍了显示流程，都会造成掉帧现象。所以开发时，也需要分别对 CPU 和 GPU 压力进行评估和优化。</p>
+<h3 id="2、解决卡顿"><a href="#2、解决卡顿" class="headerlink" title="2、解决卡顿"></a>2、解决卡顿</h3><p>针对 CPU 资源消耗方面的优化：</p>
+<ul>
+<li>（1）对象的创建和销毁是比较消耗 CPU 资源的，所以应当减少 UIView 的创建，尽量复用 UIView</li>
+<li>（2）尽量使用轻量级对象，例如使用 CALayer 能满足需求的话，尽量使用 CALayer</li>
+<li>（3）如果任务不涉及到 UI 操作，尽量放到后台线程处理</li>
+<li>（4）尽量避免调整视图层次、添加和移除视图</li>
+<li>（5）避免频繁调整 frame&#x2F;bounds&#x2F;center 等属性</li>
+<li>（6）如果使用了 CoreGraphic 相关 API 进行绘制，尽量异步绘制（前面有提到异步绘制实现方式）</li>
+</ul>
+<p><strong>针对 GUP 资源消耗方面的优化：</strong></p>
+<ul>
+<li>（1）当多个视图（或者说 CALayer）重叠在一起显示时，GPU 会首先把他们混合到一起。如果视图结构过于复杂，混合的过程也会消耗很多 GPU 资源，所以应当尽量减少视图数量和层次</li>
+<li>（2）GPU 能处理的最大纹理尺寸是 4096x4096，一旦超过这个尺寸，就会占用 CPU 资源进行处理，所以纹理尽量不要超过这个尺寸</li>
+<li>（3）减少透明的视图（alpha&lt;1），不透明的就设置 opaque 为 YES，避免无用的 Alpha 通道合成。</li>
+<li>（4）避免离屏渲染</li>
+</ul>
+<h3 id="3、监听卡顿"><a href="#3、监听卡顿" class="headerlink" title="3、监听卡顿"></a>3、监听卡顿</h3><h4 id="1-利用-Runloop-监控卡顿"><a href="#1-利用-Runloop-监控卡顿" class="headerlink" title="(1) 利用 Runloop 监控卡顿"></a>(1) 利用 Runloop 监控卡顿</h4><p>根据 Runloop 的执行流程可以发现，Runloop 对我们业务逻辑的处理时间在两个阶段：</p>
+<ul>
+<li><code>kCFRunLoopBeforeSources</code> 和 <code>kCFRunLoopBeforeWaiting</code> 之间</li>
+<li><code>kCFRunLoopAfterWaiting</code> 之后</li>
+</ul>
+<p>所以，如果主线程 Runloop 处在 <code>kCFRunLoopBeforeSources</code> 时间过长，也就是迟迟无法将任务处理完成，顺利到达 <code>kCFRunLoopBeforeWaiting</code> 阶段，说明发生了卡顿。</p>
+<p>同样的，如果 Runloop 处在 <code>kCFRunLoopAfterWaitin</code>g 时间过长，也是发生了卡顿。</p>
+<p>所以，如果我们要利用 Runloop 来监控卡顿的话，就要关注 <code>kCFRunLoopBeforeSources</code> 和 <code>kCFRunLoopAfterWaiting</code> 两个阶段，一般卡顿时间超过 250ms 会被明显感知，所以，可以以连续 5 次卡顿时长超过 50ms 可以认为发生卡顿，或者根据需要调整统计阀值。以下是通过 Runloop 监听卡顿的一个例子：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">LagMonitor</span>() </span>&#123;</span><br><span class="line">    <span class="type">int</span> timeoutCount;</span><br><span class="line">    <span class="built_in">CFRunLoopObserverRef</span> runLoopObserver;</span><br><span class="line">    <span class="keyword">@public</span></span><br><span class="line">    dispatch_semaphore_t dispatchSemaphore;</span><br><span class="line">    <span class="built_in">CFRunLoopActivity</span> runLoopActivity;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">LagMonitor</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> mark - Interface</span></span><br><span class="line">+ (<span class="keyword">instancetype</span>)shareInstance &#123;</span><br><span class="line">    <span class="keyword">static</span> <span class="type">id</span> instance = <span class="literal">nil</span>;</span><br><span class="line">    <span class="keyword">static</span> <span class="built_in">dispatch_once_t</span> dispatchOnce;</span><br><span class="line">    <span class="built_in">dispatch_once</span>(&amp;dispatchOnce, ^&#123;</span><br><span class="line">        instance = [[<span class="keyword">self</span> alloc] init];</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="keyword">return</span> instance;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 开始监控</span></span><br><span class="line">- (<span class="type">void</span>)beginMonitor &#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;开始监控&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (runLoopObserver) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 创建信号量，注意这里信号量为 0</span></span><br><span class="line">    dispatchSemaphore = dispatch_semaphore_create(<span class="number">0</span>);</span><br><span class="line">    <span class="comment">// 创建 Observer</span></span><br><span class="line">    <span class="built_in">CFRunLoopObserverContext</span> context = &#123;<span class="number">0</span>,(__bridge <span class="type">void</span>*)<span class="keyword">self</span>,<span class="literal">NULL</span>,<span class="literal">NULL</span>&#125;;</span><br><span class="line">    runLoopObserver = <span class="built_in">CFRunLoopObserverCreate</span>(kCFAllocatorDefault,</span><br><span class="line">                                              kCFRunLoopAllActivities,</span><br><span class="line">                                              <span class="literal">YES</span>,</span><br><span class="line">                                              <span class="number">0</span>,</span><br><span class="line">                                              &amp;runLoopObserverCallBack,</span><br><span class="line">                                              &amp;context);</span><br><span class="line">    <span class="comment">// 将 Observer 添加到主线程的 RunLoop</span></span><br><span class="line">    <span class="built_in">CFRunLoopAddObserver</span>(<span class="built_in">CFRunLoopGetMain</span>(), runLoopObserver, kCFRunLoopCommonModes);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 在子线程持续监控</span></span><br><span class="line">    <span class="built_in">dispatch_async</span>(dispatch_get_global_queue(<span class="number">0</span>, <span class="number">0</span>), ^&#123;</span><br><span class="line">        <span class="keyword">while</span> (<span class="literal">YES</span>) &#123;</span><br><span class="line">            <span class="comment">/**</span></span><br><span class="line"><span class="comment">             信号量 P 操作，成功的话信号量会 - 1，这里超时时间为 50ms，即等待 50ms 后还没成功就返回失败</span></span><br><span class="line"><span class="comment">             操作成功，信号量 - 1，返回值为 0；操作失败，返回值非 0</span></span><br><span class="line"><span class="comment">             由于初始信号量为 0，这里会阻塞，直到 runLoopObserverCallBack 函数中对信号量做了 V 操作，即 RunLoop 状态发生改变的时候。</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            <span class="type">long</span> semaphoreWait = dispatch_semaphore_wait(<span class="keyword">self</span>-&gt;dispatchSemaphore, dispatch_time(DISPATCH_TIME_NOW, <span class="number">50</span> * <span class="built_in">NSEC_PER_MSEC</span>));</span><br><span class="line">            <span class="keyword">if</span> (semaphoreWait != <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="comment">// 发生超时，说明 RunLoop 保持在一个状态的时间超过了 50ms</span></span><br><span class="line">                <span class="keyword">if</span> (!<span class="keyword">self</span>-&gt;runLoopObserver) &#123;</span><br><span class="line">                    <span class="keyword">self</span>-&gt;timeoutCount = <span class="number">0</span>;</span><br><span class="line">                    <span class="keyword">self</span>-&gt;dispatchSemaphore = <span class="number">0</span>;</span><br><span class="line">                    <span class="keyword">self</span>-&gt;runLoopActivity = <span class="number">0</span>;</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="comment">// 如果是在 BeforeSources 或 AfterWaiting 这两个状态持续时间达到超时时间，就代表发生了卡顿</span></span><br><span class="line">                <span class="keyword">if</span> (<span class="keyword">self</span>-&gt;runLoopActivity == kCFRunLoopBeforeSources || <span class="keyword">self</span>-&gt;runLoopActivity == kCFRunLoopAfterWaiting) &#123;</span><br><span class="line">                    <span class="comment">// 出现三次出结果</span></span><br><span class="line">                    <span class="keyword">if</span> (++<span class="keyword">self</span>-&gt;timeoutCount &lt; <span class="number">5</span>) &#123;</span><br><span class="line">                        <span class="keyword">continue</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                    <span class="comment">// 发生了卡顿，可以使用 PLCrashReporter 等收集堆栈并上报</span></span><br><span class="line">                    <span class="built_in">NSLog</span>(<span class="string">@&quot;发生了卡顿，&quot;</span>);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">self</span>-&gt;timeoutCount = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// 结束监控</span></span><br><span class="line">- (<span class="type">void</span>)endMonitor &#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@&quot;结束监控&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (!runLoopObserver) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">CFRunLoopRemoveObserver</span>(<span class="built_in">CFRunLoopGetMain</span>(), runLoopObserver, kCFRunLoopCommonModes);</span><br><span class="line">    <span class="comment">// 释放 Observer</span></span><br><span class="line">    <span class="built_in">CFRelease</span>(runLoopObserver);</span><br><span class="line">    runLoopObserver = <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">pragma</span> mark - Private</span></span><br><span class="line"><span class="keyword">static</span> <span class="type">void</span> runLoopObserverCallBack(<span class="built_in">CFRunLoopObserverRef</span> observer, <span class="built_in">CFRunLoopActivity</span> activity, <span class="type">void</span> *info) &#123;</span><br><span class="line">    LagMonitor *lagMonitor = (__bridge LagMonitor*)info;</span><br><span class="line">    lagMonitor-&gt;runLoopActivity = activity;</span><br><span class="line">    </span><br><span class="line">    dispatch_semaphore_t semaphore = lagMonitor-&gt;dispatchSemaphore;</span><br><span class="line">    <span class="comment">// 对信号量进行 V 操作，信号量 + 1</span></span><br><span class="line">    dispatch_semaphore_signal(semaphore);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="2-子线程-ping-监控卡顿"><a href="#2-子线程-ping-监控卡顿" class="headerlink" title="(2) 子线程 ping 监控卡顿"></a>(2) 子线程 ping 监控卡顿</h4><p>子线程定时给主线程发送 ping 消息，主线程收到消息后回复 pong 消息，如果隔了太久才回复消息，可以说明主线程发生了卡顿。<br>其中一种实现方式是在子线程进行加锁，让主线程去解锁，如果主线程没有卡顿就能很快解锁。但是如果主线程在一定时间阀值内（例如 150 ms）还没有解锁，也就是加锁到解锁这段时间间隔大于阀值，就代表产生了卡顿，例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 自定义的子线程 PingThread</span></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">PingThread</span> : <span class="title">NSThread</span></span></span><br><span class="line">......</span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">PingThread</span></span></span><br><span class="line"></span><br><span class="line">- (<span class="type">void</span>)main &#123;</span><br><span class="line">    [<span class="keyword">self</span> pingMainThread];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="type">void</span>)pingMainThread &#123;</span><br><span class="line">    <span class="comment">// 如果没有取消就循环执行</span></span><br><span class="line">    <span class="keyword">while</span> (!<span class="keyword">self</span>.cancelled) &#123;</span><br><span class="line">        <span class="keyword">@autoreleasepool</span> &#123;</span><br><span class="line">            <span class="built_in">dispatch_async</span>(dispatch_get_main_queue(), ^&#123;</span><br><span class="line">                <span class="comment">// 如果主线程没有卡顿，这里可以很快解锁</span></span><br><span class="line">                [_lock unlock];</span><br><span class="line">            &#125;);</span><br><span class="line">            </span><br><span class="line">            <span class="built_in">CFAbsoluteTime</span> pingTime = <span class="built_in">CFAbsoluteTimeGetCurrent</span>();</span><br><span class="line">            <span class="comment">// 加锁，让主线程去解锁。如果之前已经加锁，但主线程没有解锁，就会阻塞无法继续执行</span></span><br><span class="line">            [_lock lock];</span><br><span class="line">            <span class="comment">// 只有主线程完成解锁之后，才会执行到这里</span></span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">CFAbsoluteTimeGetCurrent</span>() - pingTime &gt;= _threshold) &#123;</span><br><span class="line">                <span class="comment">// 如果加锁到解锁阶段花费的时间超过阀值，就是发生了卡顿，这里获取主线程堆栈进行上报</span></span><br><span class="line">            &#125;</span><br><span class="line">            <span class="comment">// 每隔 _interval 秒进行一次卡顿检测</span></span><br><span class="line">            [<span class="built_in">NSThread</span> sleepForTimeInterval: _interval];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br></pre></td></tr></table></figure>
+<p>当然这只是其中一种实现方式，除此之外还可以利用信号量、发通知等各种实现方式，但是思想是一样的。</p>
+<h4 id="3-使用-CADisplayLink-监测-FPS"><a href="#3-使用-CADisplayLink-监测-FPS" class="headerlink" title="(3) 使用 CADisplayLink 监测 FPS"></a>(3) 使用 CADisplayLink 监测 FPS</h4><p>通常情况下，屏幕会保持 60hz&#x2F;s 的刷新率，每次刷新时会发出一个屏幕刷新信，通过 <code>CADisplayLink</code> 可以注册一个与刷新信号同步的回调处理。可以通过屏幕刷新机制来展示 FPS 值，如果没有达到 60hz&#x2F;s 可以认为发生了卡顿。例如：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">@implemention ViewController &#123;</span><br><span class="line">    <span class="built_in">UILable</span> *_fpsLabel;</span><br><span class="line">    <span class="built_in">CADisplayLink</span> *_link;</span><br><span class="line">    <span class="built_in">NSTimeInterval</span> _lastTime;</span><br><span class="line">    <span class="type">float</span> _fps;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="type">void</span>)startMonitoring &#123;</span><br><span class="line">    <span class="keyword">if</span> (_link) &#123;</span><br><span class="line">        [_link removeFromRunloop:[<span class="built_in">NSRunloop</span> mainRunloop] forMode:<span class="built_in">NSRunloopCommonModes</span>];</span><br><span class="line">        [_link invalidate];</span><br><span class="line">        _link = <span class="literal">nil</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    _link = [<span class="built_in">CADisplayLink</span> displayLinkWithTarget:<span class="keyword">self</span> selector:<span class="keyword">@selector</span>(fpsDisplayLinkAction:)];</span><br><span class="line">    [_link addToRunloop:[<span class="built_in">NSRunloop</span> mainRunloop] forMode:<span class="built_in">NSRunloopCommonModes</span>];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="type">void</span>)fpsDisplayLinkAction:(<span class="built_in">CADisplaylink</span> *)link &#123;</span><br><span class="line">    <span class="keyword">if</span> (_lastTime == <span class="number">0</span>) &#123;</span><br><span class="line">        _lastTime = link.timestamp;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">self</span>.count++;</span><br><span class="line">    <span class="built_in">NSTimeInterval</span> delta = link.timestamp - _lastTime;</span><br><span class="line">    <span class="keyword">if</span> (delta &lt; <span class="number">1</span>) <span class="keyword">return</span>;</span><br><span class="line">    _lastTime = link.timestamp;</span><br><span class="line">    _fps = _count / delta;</span><br><span class="line">    <span class="keyword">self</span>.count = <span class="number">0</span>;</span><br><span class="line">    _fpsLabel.text = [<span class="built_in">NSString</span> stringWithFormat:<span class="string">@&quot;FPS: %.0f&quot;</span>, _fps];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面代码逻辑只是通过一个 <code>UILable</code> 去显示当前帧率，如果有需要，可以在帧率小于 60 fps 时上报主线程堆栈。</p>
+<p><strong>参考：</strong><br><a target="_blank" rel="noopener" href="https://docs.huihoo.com/apple/wwdc/2014/419_advanced_graphics_and_animation_performance.pdf">Advanced Graphics and Animations for iOS Apps</a><br><a target="_blank" rel="noopener" href="https://github.com/RickeyBoy/Rickey-iOS-Notes/blob/master/%E7%AC%94%E8%AE%B0/iOS%20Rendering.md">iOS Rendering 渲染全解析</a><br><a target="_blank" rel="noopener" href="https://blog.ibireme.com/2015/11/12/smooth_user_interfaces_for_ios/">iOS 保持界面流畅的技巧</a><br><a target="_blank" rel="noopener" href="https://www.hanleylee.com/principle-of-graphic-rendering-in-ios.html">iOS 的图形绘制原理</a></p>
+</section>
+
+    <!-- Copyright START -->
+    
+      <div>
+  <ul class="post-copyright">
+    <li>
+      <a rel=license href=http://creativecommons.org/licenses/by/4.0/>
+        <img alt="知识共享许可协议" style="border-width:0;height:30px;width:auto;" src="/css/images/copyright.png">
+      </a>
+    </li>
+    <li>
+      本文章采用 <a rel=license href=http://creativecommons.org/licenses/by/4.0/>知识共享署名 4.0 国际许可协议</a> 进行许可，完整转载、部分转载、图片转载时均请注明原文链接。
+    </li>
+  </ul>
+<div>
+    
+    <!-- Copyright START -->
+
+
+    <!-- Tags START -->
+    
+      <div class="tags">
+        <span>Tags:</span>
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      </div>
+    
+    <!-- Tags END -->
+    <!-- NAV START -->
+    
+  <div class="nav-container">
+    <!-- reverse left and right to put prev and next in a more logic postition -->
+    
+      <a class="nav-left" href="/posts/56329/">
+        <span class="nav-arrow">← </span>
+        
+          WKWebView 与 JavaScriptCore
+        
+      </a>
+    
+    
+      <a class="nav-right" href="/posts/16217/">
+        
+          图片加载原理及优化
+        
+        <span class="nav-arrow"> →</span>
+      </a>
+    
+  </div>
+
+    <!-- NAV END -->
+    <!-- 打赏 START -->
+    
+    <!-- 打赏 END -->
+    <!-- 二维码 START -->
+    
+    <!-- 二维码 END -->
+    
+      <!-- Gitalk START -->
+      <div id="gitalk-container"></div>
+      <!-- Gitalk END -->
+    
+  </article>
+  <!-- Article END -->
+  <!-- Catalog START -->
+  
+  <!-- Catalog END -->
+</main>
+
+<script>
+  (function () {
+    var url = 'https://www.lixkit.com/posts/42986/';
+    var banner = 'undefined'
+    if (banner !== '' && banner !== 'undefined' && banner !== 'null') {
+      $('#article-banner').css({
+        'background-image': 'url(' + banner + ')'
+      })
+    } else {
+      $('#article-banner').geopattern(url)
+    }
+    $('.header').removeClass('fixed-header')
+
+    // error image
+    $(".markdown-content img").on('error', function() {
+      $(this).attr('src', '/css/images/error_icon.png')
+      $(this).css({
+        'cursor': 'default'
+      })
+    })
+
+    // zoom image
+    $(".markdown-content img").on('click', function() {
+      var src = $(this).attr('src')
+      if (src !== '/css/images/error_icon.png') {
+        var imageW = $(this).width()
+        var imageH = $(this).height()
+
+        var zoom = ($(window).width() * 0.95 / imageW).toFixed(2)
+        zoom = zoom < 1 ? 1 : zoom
+        zoom = zoom > 2 ? 2 : zoom
+        var transY = (($(window).height() - imageH) / 2).toFixed(2)
+
+        $('body').append('<div class="image-view-wrap"><div class="image-view-inner"><img src="'+ src +'" /></div></div>')
+        $('.image-view-wrap').addClass('wrap-active')
+        $('.image-view-wrap img').css({
+          'width': `${imageW}`,
+          'transform': `translate3d(0, ${transY}px, 0) scale3d(${zoom}, ${zoom}, 1)`
+        })
+        $('html').css('overflow', 'hidden')
+
+        $('.image-view-wrap').on('click', function() {
+          $(this).remove()
+          $('html').attr('style', '')
+        })
+      }
+    })
+  })();
+</script>
+
+
+
+
+
+
+
+
+<link rel='stylesheet' type='text/css' href='//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.css'>
+<div id="gitalk-container"></div>
+<script>
+    // Promise 异步加载脚本
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    // 异步加载 Gitalk
+    async function initGitalk() {
+        try {
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/blueimp-md5/2.10.0/js/md5.min.js');
+            await loadScript('//cdnjs.cloudflare.com/ajax/libs/gitalk/1.2.2/gitalk.min.js');
+            const gitalk = new Gitalk({
+                clientID: '124a73ebef61e7821d74',
+                clientSecret: 'a1ef084cca4d78256620f08f439ba70522f84581',
+                repo: 'lixkit.github.io',
+                owner: 'lixkit',
+                admin: ['lixkit'],
+                id: md5(location.pathname),
+                distractionFreeMode: false
+            });
+            gitalk.render('gitalk-container');
+        } catch (error) {
+            console.error('Error loading Gitalk:', error);
+        }
+    }
+
+    // 在页面加载完成后异步加载 Gitalk
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGitalk);
+    } else {
+        initGitalk();
+    }
+</script>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>

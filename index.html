@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+  <meta name="description" content="李峰峰博客">
+  <meta name="keyword" content="李峰峰, iOS, 底层原理">
+  <meta name="baidu-site-verification" content="codeva-SYZlEXwvUN" />
+  <meta name="sogou_site_verification" content="YdqRkfPyHk" />
+
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="李峰峰博客">
+  <meta property="og:url" content="https://www.lixkit.com/">
+  <meta property="og:site_name" content="李峰峰博客">
+  <meta property="og:description" content="Hi，我是李峰峰，93年出生，一名iOS开发者，目前在北京。">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:image" content="https://www.lixkit.com/img/avatar.jpeg">
+  <meta property="article:author" content="李峰峰">
+
+
+  
+    <link rel="shortcut icon" href="/css/images/logo.png">
+  
+  <title>
+    
+      李峰峰博客
+    
+  </title>
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" rel="stylesheet">
+  <link href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/tomorrow.min.css" rel="stylesheet">
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/geopattern/1.2.3/js/geopattern.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  
+  
+  
+
+  
+  
+<meta name="generator" content="Hexo 7.3.0"><link rel="alternate" href="/atom.xml" title="李峰峰博客" type="application/atom+xml">
+</head>
+<div class="wechat-share">
+  <img src="/css/images/logo.png" />
+</div>
+  <body>
+    <header class="header fixed-header">
+  <div class="header-container">
+    <a class="home-link" href="/">
+      <div class="logo"></div>
+      <span>李峰峰博客</span>
+    </a>
+    <ul class="right-list">
+      
+        <li class="list-item">
+          
+            <a href="/" class="item-link active">主页</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/series/" class="item-link">分类</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/tags/" class="item-link">标签</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/archives/" class="item-link">归档</a>
+          
+        </li>
+      
+        <li class="list-item">
+          
+            <a href="/about/" class="item-link">关于</a>
+          
+        </li>
+      
+      
+    </ul>
+    <div class="menu">
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+      <span class="icon-bar"></span>
+    </div>
+    <div class="menu-mask">
+      <ul class="menu-list">
+        
+          <li class="menu-item">
+            
+              <a href="/" class="menu-link mobile-active">主页</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/series/" class="menu-link">分类</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/tags/" class="menu-link">标签</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/archives/" class="menu-link">归档</a>
+            
+          </li>
+        
+          <li class="menu-item">
+            
+              <a href="/about/" class="menu-link">关于</a>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+  </div>
+</header>
+
+    <main class="app-body">
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/28259/">深入解析 iOS 系统架构</a>
+      </h2>
+      <p class="article-date">2023年10月7日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+  <a href="/tags#架构" >
+    <span class="tag-code">架构</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、iOS 的诞生1、macOS 的历史1984 年，Apple 发布了第一款计算机 Macintosh 128K，Macintosh 以其标志性的图形用户界面（GUI）和用户友好的设计，彻底改变了计算机行业，取代了当时普遍使用的命令行界面。这个阶段，Macintosh 中的操作系统名称为  ...
+        
+      </div>
+      <a class="more" href="/posts/28259/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/15823/">文件 IO 与 mmap</a>
+      </h2>
+      <p class="article-date">2023年8月16日</p>
+      
+        
+  <a href="/tags#优化" >
+    <span class="tag-code">优化</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、常规文件访问以 NSUserDefaults 为例，看下传统文件读写流程。
+1、NSUserDefaults 基本使用12345NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];// 写[defaults s ...
+        
+      </div>
+      <a class="more" href="/posts/15823/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/34692/">GCD 底层原理 5 - 线程池</a>
+      </h2>
+      <p class="article-date">2022年12月17日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述提到线程，不得不讲下 CPU，CPU 是计算机的“大脑”，负责着程序的执行和数据的处理。
+现代 CPU 基本都是多核 CPU，这里的“核”是指 CPU 的物理核心，物理核心是真正的硬件单元，负责执行指令。物理核心在执行某些类型的指令（如内存访问）时，可能会发生等待，这时核心的其他执行 ...
+        
+      </div>
+      <a class="more" href="/posts/34692/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/50907/">GCD 底层原理 4 - dispatch_async</a>
+      </h2>
+      <p class="article-date">2022年11月17日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述dispatch_async 是用于将任务异步提交到指定调度队列的函数。它允许调用者线程继续执行，而不必等待任务的完成。
+dispatch_async 特点：
+
+会开启新线程
+dispatch_async 提交的任务不会阻塞调用者线程。调用者线程可以继续执行后续代码，而任务会被异步地 ...
+        
+      </div>
+      <a class="more" href="/posts/50907/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/42034/">GCD 底层原理 3 - dispatch_sync</a>
+      </h2>
+      <p class="article-date">2022年11月12日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述dispatch_sync 用于将一个任务同步地提交到指定的调度队列，并等待该任务完成后才返回。调用者线程会被阻塞，直到任务执行完毕。dispatch_sync 在需要确保任务在某个队列上按顺序执行，前一个任务完成之前，后续任务不会执行。
+dispatch_sync 特点：
+
+不会开 ...
+        
+      </div>
+      <a class="more" href="/posts/42034/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/12465/">GCD 底层原理 2 - dispatch_queue</a>
+      </h2>
+      <p class="article-date">2022年10月25日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述Grand Central Dispatch（GCD）是 iOS 中一个强大的多线程编程框架，GCD 提供了一种高效、低级别的方式来管理并发任务。
+GCD 是使用队列来调度任务的执行的，GCD 队列主要有这几种：
+
+队列（Queue）
+串行队列：任务按顺序执行，一个任务完成后才开始下 ...
+        
+      </div>
+      <a class="more" href="/posts/12465/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/33519/">GCD 底层原理 1 - dispatch_once</a>
+      </h2>
+      <p class="article-date">2022年10月15日</p>
+      
+        
+  <a href="/tags#底层" >
+    <span class="tag-code">底层</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述单例在 iOS 中应用广泛，常用于管理全局的资源，如应用程序的配置信息、数据库管理、网络请求管理器等。dispatch_once 常被用来实现单例，如下是创建单例的一个最基本的用法：
+123456789101112@implementation TestObject+ (instan ...
+        
+      </div>
+      <a class="more" href="/posts/33519/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/62814/">热修复之 MangoFix 实现原理</a>
+      </h2>
+      <p class="article-date">2022年10月2日</p>
+      
+        
+  <a href="/tags#源码" >
+    <span class="tag-code">源码</span>
+  </a>
+
+  <a href="/tags#热修复" >
+    <span class="tag-code">热修复</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、基本使用MangoFix 是 iOS 中另一个热修复 SDK，其实现原理与 JSPatch 不同。MangoFix 定义了一套与 OC 相似语法规则，使用该规则编写热修复代码，并使用 Lex、Yacc 实现词法分析器、语法分析器处理热修复代码生成抽象语法树 AST 并解释执行，再利用 R ...
+        
+      </div>
+      <a class="more" href="/posts/62814/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/48084/">热修复之 JSPatch 实现原理</a>
+      </h2>
+      <p class="article-date">2022年9月10日</p>
+      
+        
+  <a href="/tags#源码" >
+    <span class="tag-code">源码</span>
+  </a>
+
+  <a href="/tags#热修复" >
+    <span class="tag-code">热修复</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、基本使用JSPatch  基于 JavaScriptCore、Runtime 实现，可以使用 JavaScript 代码对原方法进行重写(覆盖)、新增方法等，实现对线上问题代码的修复，例如：假设 JPViewController 中按钮点击事件如下：
+123456@implementat ...
+        
+      </div>
+      <a class="more" href="/posts/48084/">阅读全文</a>
+    </article>
+  
+    <article class="article-card">
+      <h2 class="article-head">
+        <a href="/posts/20895/">编译原理之 Lex & Yacc</a>
+      </h2>
+      <p class="article-date">2022年5月3日</p>
+      
+        
+  <a href="/tags#热修复" >
+    <span class="tag-code">热修复</span>
+  </a>
+
+  <a href="/tags#编译原理" >
+    <span class="tag-code">编译原理</span>
+  </a>
+
+      
+      <div class="article-summary">
+        
+          一、概述Lex 和 Yacc 是编译器和解释器开发中广泛使用的工具，分别用于词法分析和语法分析。它们通常配合使用，帮助开发者快速构建语言处理工具，处理复杂的语言解析任务。
+Lex（Lexical Analyzer Generator）是词法分析器生成器，Yacc（Yet Another Co ...
+        
+      </div>
+      <a class="more" href="/posts/20895/">阅读全文</a>
+    </article>
+  
+
+  
+    <div class="guide-pager">
+  
+    <a class="unvisible" href="/"><span class="page-arrow">←</span> 上一页</a>
+  
+  
+    <a href="/page/2/">下一页<span class="page-arrow"> →</span></a>
+  
+</div>
+  
+</main>
+
+
+    <div class="scroll-top">
+  <span class="arrow-icon"></span>
+</div>
+    
+<footer class="app-footer">
+  <p class="copyright">
+    李峰峰 © 2016 - 2025
+    
+        |
+        
+            <a style="color: #7f8c8d;" href="http://beian.miit.gov.cn/" target="_blank" rel="noopener nofollow">京ICP备2023030486号-6</a>
+        
+    
+  </p>
+</footer>
+
+
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+      o = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    FastClick.attach(document.body);
+  })
+</script>
+
+<script>
+  var hasLine = 'true';
+  async("//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js", function(){
+    $('figure pre').each(function(i, block) {
+      var figure = $(this).parents('figure');
+      if (hasLine === 'false') {
+        figure.find('.gutter').hide();
+      }
+      hljs.configure({useBR: true});
+      var lang = figure.attr('class').split(' ')[1] || 'code';
+      var codeHtml = $(this).html();
+      var codeTag = document.createElement('code');
+      codeTag.className = lang;
+      codeTag.innerHTML = codeHtml;
+      $(this).attr('class', '').empty().html(codeTag);
+      figure.attr('data-lang', lang.toUpperCase());
+      hljs.highlightBlock(block);
+    });
+  })
+</script>
+<!-- Baidu Tongji -->
+
+<script>
+    var _baId = 'cef02744ce74fd7afbb6bab85e4a6c24';
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+<script src="/js/script.js"></script>
+
+
+  <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+</body>
+</html>
